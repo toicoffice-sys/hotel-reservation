@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DLSL Chez Rafael — Admin Dashboard</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- Login gate -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <h2>Admin Login</h2>
+    <p class="sub">Sign in with your @dlsl.edu.ph email to manage reservations.</p>
+
+    <div id="loginAlert"></div>
+
+    <form id="emailForm">
+      <div class="field">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" placeholder="you@dlsl.edu.ph" required />
+      </div>
+      <button type="submit" class="btn btn-primary" id="sendCodeBtn">Send Login Code</button>
+    </form>
+
+    <form id="codeForm" style="display:none; margin-top: 12px;">
+      <div class="field">
+        <label for="loginCode">Verification Code</label>
+        <input type="text" id="loginCode" inputmode="numeric" maxlength="6" placeholder="6-digit code" required />
+        <span class="hint">Sent to <strong id="codeSentTo"></strong>. Expires in 5 minutes.</span>
+      </div>
+      <button type="submit" class="btn btn-primary" id="verifyCodeBtn">Verify &amp; Sign In</button>
+      <button type="button" class="btn btn-ghost" id="backToEmailBtn" style="margin-top:8px;">Use a different email</button>
+    </form>
+  </div>
+</div>
+
+<!-- Dashboard (shown after login) -->
+<div id="dashboardWrap" style="display:none;">
+  <header class="site-header">
+    <div class="container">
+      <div class="brand">
+        <div class="mark">DL</div>
+        <div class="titles">
+          <h1>DLSL Chez Rafael</h1>
+          <p>Admin Dashboard</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span id="adminEmailLabel" style="margin-right:12px; font-size:13px;"></span>
+        <a href="#" id="logoutBtn">Log Out</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="container" style="padding-top: 26px;">
+    <div class="stat-grid">
+      <div class="stat-card"><div class="label">Total Reservations</div><div class="value" id="statTotal">0</div></div>
+      <div class="stat-card"><div class="label">Pending Approval</div><div class="value" id="statPending">0</div></div>
+      <div class="stat-card"><div class="label">Approved</div><div class="value" id="statApproved">0</div></div>
+      <div class="stat-card"><div class="label">Rejected / Declined</div><div class="value" id="statRejected">0</div></div>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="searchInput" placeholder="Search name, email, or reservation ID..." style="flex: 1; min-width: 220px;" />
+      <select id="statusFilter">
+        <option value="">All Statuses</option>
+        <option value="Pending Approval">Pending Approval</option>
+        <option value="Approved">Approved</option>
+        <option value="Rejected">Rejected</option>
+        <option value="Declined">Declined</option>
+      </select>
+      <select id="roomFilter">
+        <option value="">All Room Types</option>
+      </select>
+      <button class="btn btn-outline" id="refreshBtn">Refresh</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Reservation ID</th>
+            <th>Guest Name</th>
+            <th>Room Type</th>
+            <th>Check-In</th>
+            <th>Check-Out</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="reservationsBody">
+          <tr><td colspan="8" class="empty-state">Loading reservations...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Reservation detail / review modal -->
+<div class="modal-backdrop" id="reviewModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="reviewModalTitle">Reservation Details</h3>
+      <button class="modal-close" id="reviewModalClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-grid" id="reviewDetailGrid"></div>
+
+      <div class="form-grid" style="margin-top: 20px;">
+        <div class="field field-full">
+          <label for="adminRemarks">Admin Remarks</label>
+          <textarea id="adminRemarks" rows="3" placeholder="Notes visible in the sheet's audit trail"></textarea>
+        </div>
+      </div>
+
+      <div style="margin-top: 16px; display:flex; gap: 10px; flex-wrap: wrap;">
+        <button class="btn btn-primary" id="approveBtn">Approve</button>
+        <button class="btn btn-danger" id="rejectBtn">Reject</button>
+        <button class="btn btn-outline" id="declineBtn">Decline</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="admin.js"></script>
+</body>
+</html>

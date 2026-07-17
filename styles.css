@@ -1,0 +1,559 @@
+/* DLSL Chez Rafael Hotel Reservation System — shared styles
+   Lasallian green design language: card layout, sticky header, responsive grid. */
+
+:root {
+  --green-900: #06331f;
+  --green-800: #0a4a2e;
+  --green-700: #0e6b3f;
+  --green-600: #12864f;
+  --green-100: #e4f5ec;
+  --green-50: #f2faf6;
+  --gold: #d4af37;
+  --ink: #1c231f;
+  --muted: #5b6660;
+  --line: #dde6e0;
+  --bg: #f7faf8;
+  --white: #ffffff;
+  --danger: #c0392b;
+  --warn: #b7791f;
+  --ok: #0e6b3f;
+  --radius: 14px;
+  --shadow: 0 4px 18px rgba(6, 51, 31, 0.08);
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+a { color: inherit; }
+
+.container {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: linear-gradient(120deg, var(--green-900), var(--green-700));
+  color: var(--white);
+  box-shadow: var(--shadow);
+}
+
+.site-header .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand .mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--gold);
+  color: var(--green-900);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.brand .titles h1 {
+  margin: 0;
+  font-size: 17px;
+  letter-spacing: 0.2px;
+}
+
+.brand .titles p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--green-100);
+}
+
+.header-actions a {
+  text-decoration: none;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* ── Hero ───────────────────────────────────────────────────────────── */
+
+.hero {
+  background: radial-gradient(120% 160% at 10% 0%, var(--green-100), var(--bg) 60%);
+  padding: 48px 0 32px;
+}
+
+.hero h2 {
+  font-size: clamp(24px, 4vw, 34px);
+  margin: 0 0 8px;
+  color: var(--green-900);
+}
+
+.hero p {
+  color: var(--muted);
+  max-width: 640px;
+  margin: 0;
+}
+
+/* ── Room cards ─────────────────────────────────────────────────────── */
+
+.section {
+  padding: 28px 0;
+}
+
+.section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-title h3 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--green-900);
+}
+
+.room-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+}
+
+.room-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.room-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(6, 51, 31, 0.14);
+}
+
+.room-card .thumb {
+  height: 140px;
+  background: linear-gradient(135deg, var(--green-600), var(--green-800));
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+}
+
+.room-card .body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.room-card h4 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--green-900);
+}
+
+.room-card .rate {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--green-700);
+}
+
+.room-card .rate span {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.room-card .meta {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.room-card .actions {
+  margin-top: auto;
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────── */
+
+.btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: filter 0.15s ease, transform 0.05s ease;
+}
+
+.btn:active { transform: scale(0.98); }
+
+.btn-primary {
+  background: var(--green-700);
+  color: var(--white);
+}
+
+.btn-primary:hover { filter: brightness(1.08); }
+
+.btn-outline {
+  background: transparent;
+  color: var(--green-700);
+  border: 1px solid var(--green-700);
+}
+
+.btn-ghost {
+  background: var(--green-100);
+  color: var(--green-800);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: var(--white);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Forms ──────────────────────────────────────────────────────────── */
+
+.form-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  padding: 24px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+.field label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--green-900);
+}
+
+.field input,
+.field select,
+.field textarea {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--white);
+  color: var(--ink);
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: 2px solid var(--green-600);
+  outline-offset: 1px;
+}
+
+.field .hint {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.field-full { grid-column: 1 / -1; }
+
+/* ── Pricing summary ────────────────────────────────────────────────── */
+
+.summary {
+  margin-top: 20px;
+  background: var(--green-50);
+  border: 1px dashed var(--green-600);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13.5px;
+  padding: 4px 0;
+  color: var(--ink);
+}
+
+.summary-row.total {
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+  padding-top: 10px;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--green-800);
+}
+
+/* ── Alerts / status pills ──────────────────────────────────────────── */
+
+.alert {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  margin: 14px 0;
+}
+
+.alert-error { background: #fdecea; color: var(--danger); border: 1px solid #f3c6c1; }
+.alert-success { background: var(--green-100); color: var(--green-800); border: 1px solid #bfe3cf; }
+.alert-info { background: #eef4fb; color: #2b5e94; border: 1px solid #cfe0f2; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.pill-pending { background: #fff4e0; color: var(--warn); }
+.pill-approved { background: var(--green-100); color: var(--ok); }
+.pill-rejected,
+.pill-declined { background: #fdecea; color: var(--danger); }
+
+/* ── Modal ──────────────────────────────────────────────────────────── */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 20, 12, 0.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+
+.modal-backdrop.open { display: flex; }
+
+.modal {
+  background: var(--white);
+  border-radius: var(--radius);
+  max-width: 560px;
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--white);
+}
+
+.modal-header h3 { margin: 0; font-size: 17px; color: var(--green-900); }
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.modal-body { padding: 20px; }
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  font-size: 13.5px;
+}
+
+.detail-grid .k { color: var(--muted); }
+.detail-grid .v { font-weight: 600; }
+
+/* ── Footer ─────────────────────────────────────────────────────────── */
+
+.site-footer {
+  padding: 28px 0 40px;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* ── Admin dashboard ────────────────────────────────────────────────── */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.stat-card {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+
+.stat-card .label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--muted);
+}
+
+.stat-card .value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--green-800);
+  margin-top: 4px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.toolbar input,
+.toolbar select {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  background: var(--white);
+}
+
+.table-wrap {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 760px;
+}
+
+thead th {
+  text-align: left;
+  padding: 12px 14px;
+  background: var(--green-50);
+  color: var(--green-900);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+}
+
+tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+tbody tr:hover { background: var(--green-50); }
+
+.row-link {
+  background: none;
+  border: none;
+  color: var(--green-700);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--muted);
+  padding: 40px 20px;
+}
+
+/* ── Login gate ─────────────────────────────────────────────────────── */
+
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(120% 120% at 20% 0%, var(--green-100), var(--bg) 60%);
+  padding: 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px 26px;
+  border: 1px solid var(--line);
+}
+
+.login-card h2 {
+  margin: 4px 0 4px;
+  color: var(--green-900);
+  font-size: 19px;
+}
+
+.login-card p.sub {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.login-card form { display: flex; flex-direction: column; gap: 12px; }
+
+@media (max-width: 640px) {
+  .detail-grid { grid-template-columns: 1fr; }
+}

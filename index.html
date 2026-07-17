@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DLSL Chez Rafael — Reservation Portal</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <div class="brand">
+      <div class="mark">DL</div>
+      <div class="titles">
+        <h1>DLSL Chez Rafael</h1>
+        <p>Guest House Reservation Portal</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a href="admin.html">Admin Login</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <h2>Reserve your stay at DLSL Chez Rafael</h2>
+    <p>Browse our room and venue categories, check availability, and submit a reservation request. Standard check-in begins at 2:00 PM.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-title">
+      <h3>Rooms &amp; Venues</h3>
+    </div>
+    <div class="room-grid" id="roomGrid">
+      <!-- room cards injected by script.js -->
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-title">
+      <h3>Booking Form</h3>
+    </div>
+
+    <div id="formAlert"></div>
+
+    <form class="form-card" id="bookingForm" autocomplete="off">
+      <div class="form-grid">
+        <div class="field">
+          <label for="roomType">Room Type</label>
+          <select id="roomType" name="roomType" required>
+            <option value="">Select a room type</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="guests">Number of Guests</label>
+          <input type="number" id="guests" name="guests" min="1" required />
+          <span class="hint" id="guestsHint"></span>
+        </div>
+
+        <div class="field">
+          <label for="checkIn">Check-In Date</label>
+          <input type="date" id="checkIn" name="checkIn" required />
+        </div>
+        <div class="field">
+          <label for="checkInTime">Check-In Time</label>
+          <input type="time" id="checkInTime" name="checkInTime" value="14:00" required />
+          <span class="hint">Standard check-in begins at 2:00 PM.</span>
+        </div>
+
+        <div class="field">
+          <label for="checkOut">Check-Out Date</label>
+          <input type="date" id="checkOut" name="checkOut" required />
+        </div>
+        <div class="field">
+          <label for="checkOutTime">Check-Out Time</label>
+          <input type="time" id="checkOutTime" name="checkOutTime" value="12:00" required />
+          <span class="hint">Late checkout fee applies after 12:15 PM.</span>
+        </div>
+
+        <div class="field">
+          <label for="mattressQty">Extra Mattress (qty)</label>
+          <input type="number" id="mattressQty" name="mattressQty" min="0" value="0" />
+          <span class="hint">PHP 200 per mattress.</span>
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button type="button" class="btn btn-outline" id="checkAvailabilityBtn">Check Availability</button>
+        </div>
+
+        <div class="field field-full">
+          <label for="fullName">Full Name</label>
+          <input type="text" id="fullName" name="fullName" required />
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required />
+        </div>
+        <div class="field">
+          <label for="phone">Phone</label>
+          <input type="tel" id="phone" name="phone" required />
+        </div>
+        <div class="field field-full">
+          <label for="affiliation">Affiliation</label>
+          <input type="text" id="affiliation" name="affiliation" placeholder="Organization / School / Guest" />
+        </div>
+        <div class="field field-full">
+          <label for="specialRequests">Special Requests (optional)</label>
+          <textarea id="specialRequests" name="specialRequests" rows="3" placeholder="e.g. Extra mattress, late checkout, special accommodations"></textarea>
+        </div>
+      </div>
+
+      <div class="summary" id="pricingSummary">
+        <div class="summary-row"><span>Room Rate</span><span id="sumRoomRate">—</span></div>
+        <div class="summary-row"><span>Nights</span><span id="sumNights">—</span></div>
+        <div class="summary-row"><span>Room Cost</span><span id="sumRoomCost">—</span></div>
+        <div class="summary-row"><span>Late Checkout Fee</span><span id="sumLateFee">—</span></div>
+        <div class="summary-row"><span>Mattress Fee</span><span id="sumMattressFee">—</span></div>
+        <div class="summary-row"><span>Extra Guest Fee</span><span id="sumGuestFee">—</span></div>
+        <div class="summary-row total"><span>Total Expenses</span><span id="sumTotal">PHP 0</span></div>
+      </div>
+
+      <div style="margin-top: 20px; display:flex; gap: 10px; flex-wrap: wrap;">
+        <button type="submit" class="btn btn-primary" id="submitBtn">Submit Reservation</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    DLSL Chez Rafael Hotel Reservation System &middot; Guest House Administration
+  </div>
+</footer>
+
+<!-- Room details modal -->
+<div class="modal-backdrop" id="roomModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="roomModalTitle">Room Details</h3>
+      <button class="modal-close" id="roomModalClose">&times;</button>
+    </div>
+    <div class="modal-body" id="roomModalBody"></div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
