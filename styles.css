@@ -89,6 +89,12 @@ a { color: inherit; }
   color: var(--green-100);
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .header-actions a {
   text-decoration: none;
   font-size: 13px;
@@ -649,6 +655,17 @@ tbody tr:hover { background: var(--green-50); }
   padding: 28px 26px;
   border: 1px solid var(--line);
 }
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--green-700);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.back-link:hover { text-decoration: underline; }
 
 .login-card h2 {
   margin: 4px 0 4px;
