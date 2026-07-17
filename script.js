@@ -19,6 +19,10 @@ const ROOM_ICONS = {
   'Event Place': '🎪'
 };
 
+const ROOM_IMAGES = {
+  'Standard Room': 'images/rooms/standard-room.jpg'
+};
+
 const LATE_CHECKOUT_GRACE_MINUTES = 12 * 60 + 15;
 const LATE_CHECKOUT_FEE_PER_HOUR = 200;
 const MATTRESS_FEE_PER_UNIT = 200;
@@ -130,7 +134,9 @@ function renderRoomCards() {
   const grid = document.getElementById('roomGrid');
   grid.innerHTML = rooms.map(room => `
     <div class="room-card">
-      <div class="thumb">${ROOM_ICONS[room.roomType] || '🏠'}</div>
+      <div class="thumb">${ROOM_IMAGES[room.roomType]
+        ? `<img src="${ROOM_IMAGES[room.roomType]}" alt="${room.roomType}" loading="lazy" />`
+        : (ROOM_ICONS[room.roomType] || '🏠')}</div>
       <div class="body">
         <h4>${room.roomType}</h4>
         <div class="rate">${formatCurrency(room.rate)} <span>/ ${room.roomType === 'Event Place' ? 'day' : 'night'}</span></div>
