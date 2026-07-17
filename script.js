@@ -1,7 +1,7 @@
 // DLSL Chez Rafael Hotel Reservation System — public booking portal logic
 
 // Fill this in after deploying the Apps Script web app (see README.md).
-const SCRIPT_URL = 'PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbysMtfkO4-tuzx-dK_CvWqqDlf3rBk4nOSo6w60UTeak6y6Fq1AEuEymA06NuoD09aODg/exec';
 
 // Fallback room data, used only if the live /getRooms call fails (e.g. before
 // SCRIPT_URL is configured). The deployed Rooms sheet is the source of truth.
