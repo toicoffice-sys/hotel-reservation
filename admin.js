@@ -29,10 +29,12 @@ async function init() {
   showLogin();
 }
 
+const API_TIMEOUT_MS = 20000;
+
 async function apiGet(params) {
   const url = new URL(SCRIPT_URL);
   Object.keys(params).forEach(k => { if (params[k] !== undefined && params[k] !== '') url.searchParams.set(k, params[k]); });
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(API_TIMEOUT_MS) });
   return res.json();
 }
 
@@ -40,7 +42,8 @@ async function apiPost(body) {
   const res = await fetch(SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(API_TIMEOUT_MS)
   });
   return res.json();
 }

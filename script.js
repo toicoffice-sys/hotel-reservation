@@ -45,11 +45,11 @@ let lightboxIndex = 0;
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
-  rooms = await fetchRooms();
-  renderRoomCards();
+  // Render everything that doesn't depend on the backend immediately, so a
+  // slow or hung Apps Script response never blocks the whole page.
   renderGallery();
-  populateRoomSelect();
   setDefaultDates();
+  renderRoomCardsLoading();
 
   document.getElementById('roomType').addEventListener('change', onRoomChange);
   ['guests', 'checkIn', 'checkInTime', 'checkOut', 'checkOutTime', 'mattressQty']
@@ -77,12 +77,26 @@ async function init() {
   });
 
   updateSummary();
+
+  // Rooms depend on the backend and can be slow — fetch in the background
+  // without blocking the rest of the page.
+  rooms = await fetchRooms();
+  renderRoomCards();
+  populateRoomSelect();
+  onRoomChange();
 }
+
+function renderRoomCardsLoading() {
+  document.getElementById('roomGrid').innerHTML =
+    '<div class="empty-state">Loading rooms &amp; venues...</div>';
+}
+
+const API_TIMEOUT_MS = 20000;
 
 async function apiGet(params) {
   const url = new URL(SCRIPT_URL);
   Object.keys(params).forEach(k => { if (params[k] !== undefined && params[k] !== '') url.searchParams.set(k, params[k]); });
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(API_TIMEOUT_MS) });
   return res.json();
 }
 
@@ -90,7 +104,8 @@ async function apiPost(body) {
   const res = await fetch(SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(API_TIMEOUT_MS)
   });
   return res.json();
 }
