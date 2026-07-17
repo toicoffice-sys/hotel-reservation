@@ -24,13 +24,30 @@ const LATE_CHECKOUT_FEE_PER_HOUR = 200;
 const MATTRESS_FEE_PER_UNIT = 200;
 const EXTRA_GUEST_FEE = 400;
 
+const GALLERY_PHOTOS = [
+  { src: 'images/gallery/exterior-front.jpg', caption: 'DLSL Chez Rafael — Main Facade' },
+  { src: 'images/gallery/entrance.jpg', caption: 'Main Entrance' },
+  { src: 'images/gallery/exterior-street.jpg', caption: 'Street View & Walkway' },
+  { src: 'images/gallery/lobby-lounge.jpg', caption: 'Lobby Lounge' },
+  { src: 'images/gallery/outdoor-patio.jpg', caption: 'Outdoor Patio Seating' },
+  { src: 'images/gallery/lounge-bar.jpg', caption: 'Lounge & Bar' },
+  { src: 'images/gallery/bar-counter.jpg', caption: 'Bar Counter' },
+  { src: 'images/gallery/restaurant-dining.jpg', caption: 'Restaurant Dining Area' },
+  { src: 'images/gallery/table-setting.jpg', caption: 'Fine Dining Table Setting' },
+  { src: 'images/gallery/conference-room.jpg', caption: 'Conference Room' },
+  { src: 'images/gallery/event-hall.jpg', caption: 'Event Hall' },
+  { src: 'images/gallery/event-hall-alt.jpg', caption: 'Event Hall — Alternate View' }
+];
+
 let rooms = [];
+let lightboxIndex = 0;
 
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
   rooms = await fetchRooms();
   renderRoomCards();
+  renderGallery();
   populateRoomSelect();
   setDefaultDates();
 
@@ -40,9 +57,23 @@ async function init() {
 
   document.getElementById('checkAvailabilityBtn').addEventListener('click', onCheckAvailability);
   document.getElementById('bookingForm').addEventListener('submit', onSubmitReservation);
+  document.getElementById('changeRoomBtn').addEventListener('click', hideBookingForm);
   document.getElementById('roomModalClose').addEventListener('click', closeRoomModal);
   document.getElementById('roomModal').addEventListener('click', e => {
     if (e.target.id === 'roomModal') closeRoomModal();
+  });
+
+  document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
+  document.getElementById('lightboxPrev').addEventListener('click', () => showLightboxAt(lightboxIndex - 1));
+  document.getElementById('lightboxNext').addEventListener('click', () => showLightboxAt(lightboxIndex + 1));
+  document.getElementById('lightbox').addEventListener('click', e => {
+    if (e.target.id === 'lightbox') closeLightbox();
+  });
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('lightbox').classList.contains('open')) return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft') showLightboxAt(lightboxIndex - 1);
+    if (e.key === 'ArrowRight') showLightboxAt(lightboxIndex + 1);
   });
 
   updateSummary();
@@ -118,6 +149,38 @@ function renderRoomCards() {
     btn.addEventListener('click', () => selectRoomAndScroll(btn.getAttribute('data-select'))));
 }
 
+// ── Facility gallery & lightbox ──────────────────────────────────────────
+
+function renderGallery() {
+  const grid = document.getElementById('galleryGrid');
+  grid.innerHTML = GALLERY_PHOTOS.map((photo, i) => `
+    <div class="gallery-item" data-index="${i}">
+      <img src="${photo.src}" alt="${photo.caption}" loading="lazy" />
+      <div class="caption">${photo.caption}</div>
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('[data-index]').forEach(el =>
+    el.addEventListener('click', () => openLightbox(Number(el.getAttribute('data-index')))));
+}
+
+function openLightbox(index) {
+  document.getElementById('lightbox').classList.add('open');
+  showLightboxAt(index);
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+function showLightboxAt(index) {
+  lightboxIndex = (index + GALLERY_PHOTOS.length) % GALLERY_PHOTOS.length;
+  const photo = GALLERY_PHOTOS[lightboxIndex];
+  document.getElementById('lightboxImage').src = photo.src;
+  document.getElementById('lightboxImage').alt = photo.caption;
+  document.getElementById('lightboxCaption').textContent = photo.caption;
+}
+
 function openRoomModal(roomType) {
   const room = getRoom(roomType);
   if (!room) return;
@@ -146,7 +209,17 @@ function closeRoomModal() {
 function selectRoomAndScroll(roomType) {
   document.getElementById('roomType').value = roomType;
   onRoomChange();
-  document.getElementById('bookingForm').scrollIntoView({ behavior: 'smooth' });
+  showBookingForm();
+  document.getElementById('bookingSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function showBookingForm() {
+  document.getElementById('bookingSection').hidden = false;
+}
+
+function hideBookingForm() {
+  document.getElementById('bookingSection').hidden = true;
+  document.getElementById('roomGrid').scrollIntoView({ behavior: 'smooth' });
 }
 
 function populateRoomSelect() {

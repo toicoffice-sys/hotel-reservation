@@ -10,7 +10,7 @@ Web-based hotel management and booking system for institutional accommodation, b
 
 - **Event Place rate standardized to PHP 15,000/day** — the doc flagged a mismatch between the HTML display (15,000) and the JS pricing logic (8,000). Now there is one source of truth: the `Rooms` sheet.
 - **Room master data now lives in a `Rooms` sheet** instead of being hardcoded in JS/Apps Script (doc recommendation #7), which is also what fixed the rate inconsistency at the root.
-- **Admin dashboard is protected by email OTP login** (doc recommendation: "Admin security"). Only `@dlsl.edu.ph` addresses can request a code; sessions last 24 hours.
+- **Admin dashboard is protected by email OTP login** (doc recommendation: "Admin security"). Only emails in `ADMIN_EMAILS` in `Code.gs` (currently just `toic.pm@dlsl.edu.ph`) can request a code; sessions last 24 hours. Add more admins by appending to that array.
 - **Approval/decline emails added** — the doc's recommendation "send approval or decline emails when the admin updates status" is implemented in `sendStatusUpdateEmail_`.
 
 Everything else (room categories, pricing rules, reservation fields, workflow) matches the doc as written.

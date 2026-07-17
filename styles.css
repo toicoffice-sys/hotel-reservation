@@ -120,6 +120,7 @@ a { color: inherit; }
 
 .section {
   padding: 28px 0;
+  scroll-margin-top: 80px;
 }
 
 .section-title {
@@ -202,6 +203,115 @@ a { color: inherit; }
   margin-top: auto;
   display: flex;
   gap: 8px;
+}
+
+/* ── Gallery ────────────────────────────────────────────────────────── */
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.gallery-item {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  background: var(--green-100);
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+.gallery-item:hover img {
+  transform: scale(1.06);
+}
+
+.gallery-item .caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 12px 8px;
+  background: linear-gradient(to top, rgba(6, 51, 31, 0.82), rgba(6, 51, 31, 0));
+  color: var(--white);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* ── Lightbox ───────────────────────────────────────────────────────── */
+
+.lightbox-inner {
+  position: relative;
+  max-width: min(90vw, 1100px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.lightbox-image {
+  max-width: 100%;
+  max-height: 78vh;
+  border-radius: 10px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  object-fit: contain;
+  background: #000;
+}
+
+.lightbox-caption {
+  color: var(--white);
+  font-size: 13.5px;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: -44px;
+  right: -6px;
+  background: none;
+  border: none;
+  color: var(--white);
+  font-size: 30px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: var(--white);
+  font-size: 32px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-nav:hover { background: rgba(255, 255, 255, 0.3); }
+.lightbox-prev { left: -56px; }
+.lightbox-next { right: -56px; }
+
+@media (max-width: 720px) {
+  .lightbox-prev { left: 4px; }
+  .lightbox-next { right: 4px; }
+  .lightbox-close { top: -38px; right: 0; }
 }
 
 /* ── Buttons ────────────────────────────────────────────────────────── */

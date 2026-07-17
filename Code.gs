@@ -3,7 +3,7 @@
 //  Google Apps Script Web App · JSON over HTTP
 // ============================================================
 
-var ALLOWED_ADMIN_DOMAIN = 'dlsl.edu.ph';
+var ADMIN_EMAILS = ['toic.pm@dlsl.edu.ph'];
 var OTP_TTL_SECONDS = 5 * 60;
 var SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -465,8 +465,8 @@ function requestOtp(email) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: 'Enter a valid email address.' };
   }
-  if (!email.endsWith('@' + ALLOWED_ADMIN_DOMAIN)) {
-    return { ok: false, error: 'Only @' + ALLOWED_ADMIN_DOMAIN + ' emails can access the admin dashboard.' };
+  if (ADMIN_EMAILS.indexOf(email) === -1) {
+    return { ok: false, error: 'This email is not authorized for admin access.' };
   }
   var code = String(Math.floor(100000 + Math.random() * 900000));
   CacheService.getScriptCache().put('otp_' + email, code, OTP_TTL_SECONDS);
