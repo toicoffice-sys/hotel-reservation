@@ -106,8 +106,8 @@ function bindLoginEvents() {
       }
       localStorage.setItem(TOKEN_KEY, result.token);
       localStorage.setItem(EMAIL_KEY, result.email);
-      const ok = await loadReservations(result.token);
-      if (ok) showDashboard(result.email);
+      applyReservations(result.reservations);
+      showDashboard(result.email);
     } catch (err) {
       loginAlert('Could not reach the reservation system. Please try again later.', 'error');
     } finally {
@@ -130,6 +130,13 @@ function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+function applyReservations(list) {
+  reservations = list;
+  populateRoomFilter();
+  renderStats();
+  renderTable();
+}
+
 async function loadReservations(token) {
   try {
     const result = await apiGet({ action: 'listReservations', token });
@@ -137,10 +144,7 @@ async function loadReservations(token) {
       loginAlert(result.error || 'Session expired. Please sign in again.', 'error');
       return false;
     }
-    reservations = result.reservations;
-    populateRoomFilter();
-    renderStats();
-    renderTable();
+    applyReservations(result.reservations);
     return true;
   } catch (err) {
     loginAlert('Could not reach the reservation system. Please try again later.', 'error');

@@ -493,7 +493,9 @@ function verifyOtp(email, code) {
   var sessions = loadSessions_();
   sessions[token] = { email: email, expiresAt: Date.now() + SESSION_TTL_MS };
   saveSessions_(sessions);
-  return { ok: true, token: token, email: email };
+  // Bundled with the reservations list so the dashboard can render immediately
+  // after login instead of waiting on a second round trip.
+  return { ok: true, token: token, email: email, reservations: getReservations() };
 }
 
 function validateSession_(token) {
