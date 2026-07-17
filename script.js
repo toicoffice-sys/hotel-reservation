@@ -20,7 +20,8 @@ const ROOM_ICONS = {
 };
 
 const ROOM_IMAGES = {
-  'Standard Room': 'images/rooms/standard-room.jpg'
+  'Standard Room': 'images/rooms/standard-room.jpg',
+  'Executive Room': 'images/rooms/executive-room.jpg'
 };
 
 const LATE_CHECKOUT_GRACE_MINUTES = 12 * 60 + 15;
