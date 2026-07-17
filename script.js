@@ -21,7 +21,9 @@ const ROOM_ICONS = {
 
 const ROOM_IMAGES = {
   'Standard Room': 'images/rooms/standard-room.jpg',
-  'Executive Room': 'images/rooms/executive-room.jpg'
+  'Executive Room': 'images/rooms/executive-room.jpg',
+  'Family Suite': 'images/rooms/family-suite.jpg',
+  'Event Place': 'images/rooms/event-place.jpg'
 };
 
 const LATE_CHECKOUT_GRACE_MINUTES = 12 * 60 + 15;
