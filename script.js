@@ -40,7 +40,6 @@ const GALLERY_PHOTOS = [
 ];
 
 let rooms = [];
-let lightboxIndex = 0;
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -61,19 +60,6 @@ async function init() {
   document.getElementById('roomModalClose').addEventListener('click', closeRoomModal);
   document.getElementById('roomModal').addEventListener('click', e => {
     if (e.target.id === 'roomModal') closeRoomModal();
-  });
-
-  document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
-  document.getElementById('lightboxPrev').addEventListener('click', () => showLightboxAt(lightboxIndex - 1));
-  document.getElementById('lightboxNext').addEventListener('click', () => showLightboxAt(lightboxIndex + 1));
-  document.getElementById('lightbox').addEventListener('click', e => {
-    if (e.target.id === 'lightbox') closeLightbox();
-  });
-  document.addEventListener('keydown', e => {
-    if (!document.getElementById('lightbox').classList.contains('open')) return;
-    if (e.key === 'Escape') closeLightbox();
-    if (e.key === 'ArrowLeft') showLightboxAt(lightboxIndex - 1);
-    if (e.key === 'ArrowRight') showLightboxAt(lightboxIndex + 1);
   });
 
   updateSummary();
@@ -164,36 +150,16 @@ function renderRoomCards() {
     btn.addEventListener('click', () => selectRoomAndScroll(btn.getAttribute('data-select'))));
 }
 
-// ── Facility gallery & lightbox ──────────────────────────────────────────
+// ── Facility gallery ──────────────────────────────────────────────────────
 
 function renderGallery() {
   const grid = document.getElementById('galleryGrid');
-  grid.innerHTML = GALLERY_PHOTOS.map((photo, i) => `
-    <div class="gallery-item" data-index="${i}">
+  grid.innerHTML = GALLERY_PHOTOS.map(photo => `
+    <div class="gallery-item">
       <img src="${photo.src}" alt="${photo.caption}" loading="lazy" />
       <div class="caption">${photo.caption}</div>
     </div>
   `).join('');
-
-  grid.querySelectorAll('[data-index]').forEach(el =>
-    el.addEventListener('click', () => openLightbox(Number(el.getAttribute('data-index')))));
-}
-
-function openLightbox(index) {
-  document.getElementById('lightbox').classList.add('open');
-  showLightboxAt(index);
-}
-
-function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('open');
-}
-
-function showLightboxAt(index) {
-  lightboxIndex = (index + GALLERY_PHOTOS.length) % GALLERY_PHOTOS.length;
-  const photo = GALLERY_PHOTOS[lightboxIndex];
-  document.getElementById('lightboxImage').src = photo.src;
-  document.getElementById('lightboxImage').alt = photo.caption;
-  document.getElementById('lightboxCaption').textContent = photo.caption;
 }
 
 function openRoomModal(roomType) {
