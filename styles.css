@@ -94,10 +94,7 @@ a { color: inherit; }
   display: block;
   height: 52px;
   width: auto;
-  filter:
-    drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
-    drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
-    drop-shadow(0 1px 3px rgba(0, 0, 0, 0.25));
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.85));
 }
 
 .site-nav {
