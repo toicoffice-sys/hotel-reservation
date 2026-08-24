@@ -58,12 +58,14 @@ sed \
   -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
   -e "s|<script src=\"script.js\"></script>|<?!= include('IndexScript'); ?>|" \
   -e 's|href="admin.html"|href="?page=admin"|' \
+  -e "s|src=\"images/|src=\"${IMAGE_BASE}images/|g" \
   index.html > "$BUILD_DIR/Index.html"
 
 sed \
   -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
   -e "s|<script src=\"admin.js\"></script>|<?!= include('AdminScript'); ?>|" \
   -e 's|href="index.html"|href="?"|' \
+  -e "s|src=\"images/|src=\"${IMAGE_BASE}images/|g" \
   admin.html > "$BUILD_DIR/Admin.html"
 
 echo "✅  gas-build/ ready (Code.gs, appsscript.json, Styles.html, IndexScript.html, AdminScript.html, Index.html, Admin.html)"
