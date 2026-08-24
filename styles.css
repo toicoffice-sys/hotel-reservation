@@ -1,24 +1,27 @@
 /* DLSL Chez Rafael Hotel Reservation System — shared styles
-   Lasallian green design language: card layout, sticky header, responsive grid. */
+   Warm gold & charcoal design language, full-bleed photo hero, sticky nav. */
 
 :root {
-  --green-900: #06331f;
-  --green-800: #0a4a2e;
-  --green-700: #0e6b3f;
-  --green-600: #12864f;
-  --green-100: #e4f5ec;
-  --green-50: #f2faf6;
-  --gold: #d4af37;
-  --ink: #1c231f;
-  --muted: #5b6660;
-  --line: #dde6e0;
-  --bg: #f7faf8;
+  --charcoal-900: #1c1c1c;
+  --charcoal-800: #262626;
+  --gold-700: #a86f00;
+  --gold-600: #c98a00;
+  --gold-500: #f2a900;
+  --gold-400: #ffcf5c;
+  --gold-100: #fff3d6;
+  --gold-50: #fffaf0;
+  --ink: #221a0c;
+  --muted: #6b6153;
+  --line: #ecdfc4;
+  --bg: #fffaf3;
   --white: #ffffff;
   --danger: #c0392b;
   --warn: #b7791f;
-  --ok: #0e6b3f;
+  --ok: #256a32;
+  --ok-bg: #e8f5ea;
+  --ok-line: #bfe0c6;
   --radius: 14px;
-  --shadow: 0 4px 18px rgba(6, 51, 31, 0.08);
+  --shadow: 0 4px 18px rgba(28, 20, 8, 0.1);
   font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -39,14 +42,37 @@ a { color: inherit; }
   padding: 0 24px;
 }
 
-/* ── Header ─────────────────────────────────────────────────────────── */
+/* ── Top contact bar ────────────────────────────────────────────────── */
+
+.topbar {
+  background: var(--charcoal-900);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12.5px;
+  letter-spacing: 0.2px;
+}
+
+.topbar .container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.topbar strong { color: var(--white); font-weight: 700; }
+
+.topbar .divider {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ── Header / nav ───────────────────────────────────────────────────── */
 
 .site-header {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: linear-gradient(120deg, var(--green-900), var(--green-700));
-  color: var(--white);
+  background: var(--gold-500);
+  color: var(--ink);
   box-shadow: var(--shadow);
 }
 
@@ -54,22 +80,24 @@ a { color: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 14px;
-  padding-bottom: 14px;
+  gap: 20px;
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .brand .mark {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: var(--gold);
-  color: var(--green-900);
+  background: var(--charcoal-900);
+  color: var(--gold-500);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -85,41 +113,93 @@ a { color: inherit; }
 
 .brand .titles p {
   margin: 0;
-  font-size: 12px;
-  color: var(--green-100);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: rgba(34, 26, 12, 0.65);
 }
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex: 1;
+  justify-content: center;
+}
+
+.site-nav a {
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--ink);
+  opacity: 0.8;
+}
+
+.site-nav a:hover { opacity: 1; }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
+  flex-shrink: 0;
 }
 
 .header-actions a {
   text-decoration: none;
   font-size: 13px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  font-weight: 600;
 }
+
+.header-actions a.btn-book {
+  color: var(--white);
+  background: var(--charcoal-900);
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+}
+
+.header-actions a.btn-book:hover { filter: brightness(1.2); }
 
 /* ── Hero ───────────────────────────────────────────────────────────── */
 
 .hero {
-  background: radial-gradient(120% 160% at 10% 0%, var(--green-100), var(--bg) 60%);
-  padding: 48px 0 32px;
+  position: relative;
+  background-image:
+    linear-gradient(to top, rgba(20, 14, 4, 0.85), rgba(20, 14, 4, 0.35) 55%, rgba(20, 14, 4, 0.55)),
+    url('images/gallery/lobby-lounge.jpg');
+  background-size: cover;
+  background-position: center;
+  padding: 90px 0 64px;
+  color: var(--white);
+}
+
+.hero .eyebrow {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: var(--gold-400);
 }
 
 .hero h2 {
-  font-size: clamp(24px, 4vw, 34px);
-  margin: 0 0 8px;
-  color: var(--green-900);
+  font-size: clamp(30px, 5vw, 48px);
+  font-weight: 800;
+  margin: 0 0 14px;
+  color: var(--white);
 }
 
 .hero p {
-  color: var(--muted);
-  max-width: 640px;
+  color: rgba(255, 255, 255, 0.85);
+  max-width: 620px;
   margin: 0;
+  font-size: 15px;
 }
 
 /* ── Room cards ─────────────────────────────────────────────────────── */
@@ -139,7 +219,7 @@ a { color: inherit; }
 .section-title h3 {
   margin: 0;
   font-size: 20px;
-  color: var(--green-900);
+  color: var(--ink);
 }
 
 .room-grid {
@@ -161,12 +241,12 @@ a { color: inherit; }
 
 .room-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 24px rgba(6, 51, 31, 0.14);
+  box-shadow: 0 10px 24px rgba(28, 20, 8, 0.16);
 }
 
 .room-card .thumb {
   height: 140px;
-  background: linear-gradient(135deg, var(--green-600), var(--green-800));
+  background: linear-gradient(135deg, var(--gold-600), var(--charcoal-900));
   color: var(--white);
   display: flex;
   align-items: center;
@@ -192,13 +272,13 @@ a { color: inherit; }
 .room-card h4 {
   margin: 0;
   font-size: 16px;
-  color: var(--green-900);
+  color: var(--ink);
 }
 
 .room-card .rate {
   font-size: 20px;
   font-weight: 700;
-  color: var(--green-700);
+  color: var(--gold-700);
 }
 
 .room-card .rate span {
@@ -233,7 +313,7 @@ a { color: inherit; }
   aspect-ratio: 4 / 3;
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
-  background: var(--green-100);
+  background: var(--gold-100);
 }
 
 .gallery-item img {
@@ -249,7 +329,7 @@ a { color: inherit; }
   right: 0;
   bottom: 0;
   padding: 10px 12px 8px;
-  background: linear-gradient(to top, rgba(6, 51, 31, 0.82), rgba(6, 51, 31, 0));
+  background: linear-gradient(to top, rgba(20, 14, 4, 0.82), rgba(20, 14, 4, 0));
   color: var(--white);
   font-size: 12.5px;
   font-weight: 600;
@@ -272,21 +352,21 @@ a { color: inherit; }
 .btn:active { transform: scale(0.98); }
 
 .btn-primary {
-  background: var(--green-700);
+  background: var(--charcoal-900);
   color: var(--white);
 }
 
-.btn-primary:hover { filter: brightness(1.08); }
+.btn-primary:hover { filter: brightness(1.3); }
 
 .btn-outline {
   background: transparent;
-  color: var(--green-700);
-  border: 1px solid var(--green-700);
+  color: var(--gold-700);
+  border: 1px solid var(--gold-600);
 }
 
 .btn-ghost {
-  background: var(--green-100);
-  color: var(--green-800);
+  background: var(--gold-100);
+  color: var(--charcoal-900);
 }
 
 .btn-danger {
@@ -320,7 +400,7 @@ a { color: inherit; }
 .field label {
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--green-900);
+  color: var(--ink);
 }
 
 .field input,
@@ -338,7 +418,7 @@ a { color: inherit; }
 .field input:focus,
 .field select:focus,
 .field textarea:focus {
-  outline: 2px solid var(--green-600);
+  outline: 2px solid var(--gold-600);
   outline-offset: 1px;
 }
 
@@ -353,8 +433,8 @@ a { color: inherit; }
 
 .summary {
   margin-top: 20px;
-  background: var(--green-50);
-  border: 1px dashed var(--green-600);
+  background: var(--gold-50);
+  border: 1px dashed var(--gold-600);
   border-radius: var(--radius);
   padding: 16px 18px;
 }
@@ -373,7 +453,7 @@ a { color: inherit; }
   padding-top: 10px;
   font-weight: 700;
   font-size: 16px;
-  color: var(--green-800);
+  color: var(--ink);
 }
 
 /* ── Alerts / status pills ──────────────────────────────────────────── */
@@ -386,7 +466,7 @@ a { color: inherit; }
 }
 
 .alert-error { background: #fdecea; color: var(--danger); border: 1px solid #f3c6c1; }
-.alert-success { background: var(--green-100); color: var(--green-800); border: 1px solid #bfe3cf; }
+.alert-success { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-line); }
 .alert-info { background: #eef4fb; color: #2b5e94; border: 1px solid #cfe0f2; }
 
 .pill {
@@ -401,8 +481,8 @@ a { color: inherit; }
   letter-spacing: 0.3px;
 }
 
-.pill-pending { background: #fff4e0; color: var(--warn); }
-.pill-approved { background: var(--green-100); color: var(--ok); }
+.pill-pending { background: var(--gold-100); color: var(--warn); }
+.pill-approved { background: var(--ok-bg); color: var(--ok); }
 .pill-rejected,
 .pill-declined { background: #fdecea; color: var(--danger); }
 
@@ -411,7 +491,7 @@ a { color: inherit; }
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(6, 20, 12, 0.55);
+  background: rgba(20, 14, 4, 0.55);
   display: none;
   align-items: center;
   justify-content: center;
@@ -442,7 +522,7 @@ a { color: inherit; }
   background: var(--white);
 }
 
-.modal-header h3 { margin: 0; font-size: 17px; color: var(--green-900); }
+.modal-header h3 { margin: 0; font-size: 17px; color: var(--ink); }
 
 .modal-close {
   background: none;
@@ -500,7 +580,7 @@ a { color: inherit; }
 .stat-card .value {
   font-size: 26px;
   font-weight: 800;
-  color: var(--green-800);
+  color: var(--gold-700);
   margin-top: 4px;
 }
 
@@ -538,8 +618,8 @@ table {
 thead th {
   text-align: left;
   padding: 12px 14px;
-  background: var(--green-50);
-  color: var(--green-900);
+  background: var(--gold-50);
+  color: var(--ink);
   font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -553,12 +633,12 @@ tbody td {
   border-bottom: 1px solid var(--line);
 }
 
-tbody tr:hover { background: var(--green-50); }
+tbody tr:hover { background: var(--gold-50); }
 
 .row-link {
   background: none;
   border: none;
-  color: var(--green-700);
+  color: var(--gold-700);
   font-weight: 600;
   cursor: pointer;
   font-size: 13px;
@@ -574,11 +654,11 @@ tbody tr:hover { background: var(--green-50); }
 /* ── Login gate ─────────────────────────────────────────────────────── */
 
 .login-wrap {
-  min-height: 100vh;
+  min-height: calc(100vh - 33px);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(120% 120% at 20% 0%, var(--green-100), var(--bg) 60%);
+  background: radial-gradient(120% 120% at 20% 0%, var(--gold-100), var(--bg) 60%);
   padding: 20px;
 }
 
@@ -596,7 +676,7 @@ tbody tr:hover { background: var(--green-50); }
   display: inline-block;
   margin-bottom: 14px;
   font-size: 13px;
-  color: var(--green-700);
+  color: var(--gold-700);
   text-decoration: none;
   font-weight: 600;
 }
@@ -605,7 +685,7 @@ tbody tr:hover { background: var(--green-50); }
 
 .login-card h2 {
   margin: 4px 0 4px;
-  color: var(--green-900);
+  color: var(--ink);
   font-size: 19px;
 }
 
@@ -617,6 +697,11 @@ tbody tr:hover { background: var(--green-50); }
 
 .login-card form { display: flex; flex-direction: column; gap: 12px; }
 
+@media (max-width: 780px) {
+  .site-nav { display: none; }
+}
+
 @media (max-width: 640px) {
   .detail-grid { grid-template-columns: 1fr; }
+  .topbar .container { flex-wrap: wrap; row-gap: 2px; }
 }

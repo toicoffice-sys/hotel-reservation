@@ -40,7 +40,11 @@ cp Code.gs "$BUILD_DIR/Code.gs"
 cp appsscript.json "$BUILD_DIR/appsscript.json"
 cp .clasp.json "$BUILD_DIR/.clasp.json"
 
-{ echo "<style>"; cat styles.css; echo "</style>"; } > "$BUILD_DIR/Styles.html"
+{
+  echo "<style>"
+  sed "s|url('images/|url('${IMAGE_BASE}images/|g" styles.css
+  echo "</style>"
+} > "$BUILD_DIR/Styles.html"
 
 {
   echo "<script>"
