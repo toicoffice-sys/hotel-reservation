@@ -2,8 +2,11 @@
 
 Web-based hotel management and booking system for institutional accommodation, built from `DLSL_Hotel Management System-william.docx`.
 
-- **Frontend**: `index.html` (public booking portal), `admin.html` (admin dashboard), `script.js`, `admin.js`, `styles.css`
-- **Backend**: `Code.gs` — Google Apps Script web app exposing a JSON API
+**Live at:** https://script.google.com/macros/s/AKfycbysMtfkO4-tuzx-dK_CvWqqDlf3rBk4nOSo6w60UTeak6y6Fq1AEuEymA06NuoD09aODg/exec (booking portal) and `?page=admin` (admin dashboard)
+
+- **Frontend + Backend**: served together as one Apps Script web app. `Code.gs`'s `doGet` renders `Index.html`/`Admin.html` (built from the canonical `index.html`/`admin.html`/`styles.css`/`script.js`/`admin.js`) when there's no `action` param, and returns the JSON API when there is.
+- **Source of truth**: `index.html`, `admin.html`, `styles.css`, `script.js`, `admin.js`, `Code.gs` at the repo root — edit these, never the generated `gas-build/` files.
+- **Images**: still served from GitHub Pages (`https://toicoffice-sys.github.io/hotel-reservation/images/...`) since Apps Script's HtmlService has no static-file hosting — keep GitHub Pages enabled on this repo even though its `index.html`/`admin.html` are no longer the canonical entry point.
 - **Database**: Google Sheets — `Reservations` and `Rooms` sheets (auto-created on first run)
 
 ## What changed vs. the original doc
@@ -24,10 +27,9 @@ Everything else (room categories, pricing rules, reservation fields, workflow) m
    clasp create --type webapp --title "DLSL Chez Rafael Reservation System" --parentId <SHEET_ID>
    ```
    This fills in `scriptId` in `.clasp.json`.
-3. Run `bash deploy.sh "Initial deploy"` — pushes `Code.gs` + `appsscript.json` and creates/updates the web app deployment. It only pushes those two files (see `.claspignore`); the frontend is not served by Apps Script.
-4. Copy the printed **Web App URL** and paste it into `SCRIPT_URL` at the top of both `script.js` and `admin.js`.
-5. Host `index.html`, `admin.html`, `styles.css`, `script.js`, `admin.js` on GitHub Pages, Netlify, Vercel, or an institutional server.
-6. Open the site, submit a test reservation, confirm the email arrives, then sign into `admin.html` and approve/reject it.
+3. Run `bash deploy.sh "Initial deploy"`. This regenerates `gas-build/` from the source files (wrapping `styles.css`/`script.js`/`admin.js` into includable `.html` files, rewriting `script.js`'s `images/...` paths to absolute GitHub Pages URLs, and swapping `index.html`↔`admin.html` nav links for `?`/`?page=admin`), then pushes and deploys that bundle — one Apps Script web app now serves both the HTML site and the JSON API at the same `.../exec` URL.
+4. Make sure GitHub Pages stays enabled on this repo (Settings → Pages) so `https://toicoffice-sys.github.io/hotel-reservation/images/...` keeps serving the room/gallery photos the deployed site links to.
+5. Open the printed **Site** URL, submit a test reservation, confirm the email arrives, then open **Admin** (`?page=admin`) and approve/reject it.
 
 The `Reservations` and `Rooms` sheets are created automatically (with seeded room data) the first time the API is called — no manual sheet setup needed beyond step 1.
 

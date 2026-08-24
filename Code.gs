@@ -37,6 +37,7 @@ var STANDARD_CHECKIN_TIME = '14:00:00';
 
 function doGet(e) {
   var action = e && e.parameter ? e.parameter.action : null;
+  if (!action) return renderPage_(e);
   try {
     switch (action) {
       case 'ping':
@@ -59,6 +60,21 @@ function doGet(e) {
   } catch (err) {
     return jsonOutput({ ok: false, error: String(err.message || err) });
   }
+}
+
+// Serves the guest booking page (default) or admin dashboard (?page=admin).
+// Only reached when no `action` param is present, so it never shadows the
+// JSON API above.
+function renderPage_(e) {
+  var page = e && e.parameter && e.parameter.page === 'admin' ? 'Admin' : 'Index';
+  return HtmlService.createTemplateFromFile(page).evaluate()
+    .setTitle('DLSL Chez Rafael')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+// Used by Index.html/Admin.html templates to inline Styles.html/*Script.html.
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
 function doPost(e) {
