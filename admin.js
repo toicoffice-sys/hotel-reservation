@@ -6,6 +6,12 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbysMtfkO4-tuzx-dK_Cv
 const TOKEN_KEY = 'dlsl_hotel_admin_token';
 const EMAIL_KEY = 'dlsl_hotel_admin_email';
 
+// See common.js's navigateTop for why this can't be a plain relative
+// window.location assignment inside the Apps Script deployment.
+function navigateTop(relativePath, queryString) {
+  window.top.location.href = (window.top !== window.self) ? (SCRIPT_URL + queryString) : relativePath;
+}
+
 let reservations = [];
 let currentReservationId = null;
 let pendingEmail = '';

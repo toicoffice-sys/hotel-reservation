@@ -4,22 +4,17 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>DLSL Chez Rafael — Admin Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
-<div class="topbar">
-  <div class="container">
-    <span><strong>TEL NO.</strong> : (043) 756-5555</span>
-    <span class="divider">|</span>
-    <span><strong>E-MAIL</strong> : info@dlsl.edu.ph</span>
-  </div>
-</div>
-
 <!-- Login gate -->
 <div class="login-wrap" id="loginWrap">
   <div class="login-card">
-    <a href="index.html" class="back-link">&larr; Back to Site</a>
+    <a href="index.html" class="back-link" onclick="navigateTop('index.html', '?'); return false;">&larr; Back to Site</a>
     <h2>Admin Login</h2>
     <p class="sub">Sign in with your authorized admin email to manage reservations.</p>
 
@@ -50,7 +45,7 @@
   <header class="site-header">
     <div class="container">
       <div class="brand">
-        <img class="brand-logo" src="images/brand/chez-rafael-logo-transparent.png" alt="Chez Rafael" />
+        <span class="brand-wordmark">Chez Rafael</span>
       </div>
       <div class="header-actions">
         <span id="adminEmailLabel" style="margin-right:12px; font-size:13px;"></span>
@@ -129,6 +124,22 @@
     </div>
   </div>
 </div>
+
+<footer class="site-footer">
+  <div class="container">
+    <p class="footer-links">
+      <a href="safety-security.html" onclick="navigateTop('safety-security.html', '?page=safety-security'); return false;">Safety and Security Policy</a>
+      <span class="sep">&middot;</span>
+      <a href="sustainability.html" onclick="navigateTop('sustainability.html', '?page=sustainability'); return false;">Sustainability Measures</a>
+      <span class="sep">&middot;</span>
+      <a href="house-rules.html" onclick="navigateTop('house-rules.html', '?page=house-rules'); return false;">House Rules</a>
+      <span class="sep">&middot;</span>
+      <a href="facilities-rules.html" onclick="navigateTop('facilities-rules.html', '?page=facilities-rules'); return false;">Facilities Rules and Regulations</a>
+    </p>
+    <p>DLSL Chez Rafael Hotel Reservation System &middot; Guest House Administration</p>
+    <p class="footer-contact"><strong>TEL NO.</strong> : (043) 756-5555 &nbsp;|&nbsp; <strong>E-MAIL</strong> : info@dlsl.edu.ph</p>
+  </div>
+</footer>
 
 <script src="admin.js"></script>
 </body>

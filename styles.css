@@ -41,29 +41,6 @@ a { color: inherit; }
   padding: 0 24px;
 }
 
-/* ── Top contact bar ────────────────────────────────────────────────── */
-
-.topbar {
-  background: var(--green-900);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 12.5px;
-  letter-spacing: 0.2px;
-}
-
-.topbar .container {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding-top: 8px;
-  padding-bottom: 8px;
-}
-
-.topbar strong { color: var(--white); font-weight: 700; }
-
-.topbar .divider {
-  color: rgba(255, 255, 255, 0.35);
-}
-
 /* ── Header / nav ───────────────────────────────────────────────────── */
 
 .site-header {
@@ -90,10 +67,12 @@ a { color: inherit; }
   flex-shrink: 0;
 }
 
-.brand-logo {
-  display: block;
-  height: 68px;
-  width: auto;
+.brand-wordmark {
+  font-family: "Pinyon Script", cursive;
+  font-size: 44px;
+  line-height: 1;
+  color: var(--white);
+  white-space: nowrap;
 }
 
 .site-nav {
@@ -104,7 +83,7 @@ a { color: inherit; }
   justify-content: center;
 }
 
-.site-nav a {
+.site-nav > a {
   text-decoration: none;
   font-size: 13px;
   font-weight: 700;
@@ -114,7 +93,71 @@ a { color: inherit; }
   opacity: 0.85;
 }
 
-.site-nav a:hover { opacity: 1; }
+.site-nav > a:hover { opacity: 1; }
+
+.nav-dropdown { position: relative; }
+
+.nav-dropdown-toggle {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--white);
+  opacity: 0.85;
+}
+
+.nav-dropdown-toggle::after {
+  content: "▾";
+  font-size: 11px;
+}
+
+.nav-dropdown:hover .nav-dropdown-toggle,
+.nav-dropdown:focus-within .nav-dropdown-toggle {
+  opacity: 1;
+}
+
+.nav-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 16px;
+  background: var(--white);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(6, 51, 31, 0.25);
+  padding: 8px;
+  min-width: 250px;
+  z-index: 60;
+}
+
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown:focus-within .nav-dropdown-menu {
+  display: block;
+}
+
+.nav-dropdown-menu a {
+  display: block;
+  padding: 9px 12px;
+  border-radius: 6px;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.nav-dropdown-menu a:hover { background: var(--green-50); }
 
 .header-actions {
   display: flex;
@@ -152,6 +195,9 @@ a { color: inherit; }
     url('images/gallery/lobby-lounge.jpg');
   background-size: cover;
   background-position: center;
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
   padding: 90px 0 64px;
   color: var(--white);
 }
@@ -530,6 +576,40 @@ a { color: inherit; }
   text-align: center;
 }
 
+.site-footer p { margin: 0 0 10px; }
+.site-footer p:last-child { margin-bottom: 0; }
+
+.site-footer .footer-contact strong { color: var(--ink); }
+
+.site-footer .footer-links a {
+  color: var(--green-700);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.site-footer .footer-links a:hover { text-decoration: underline; }
+
+.site-footer .footer-links .sep {
+  color: var(--line);
+  margin: 0 8px;
+}
+
+.policy-content {
+  max-width: 720px;
+  color: var(--ink);
+  font-size: 14.5px;
+  line-height: 1.7;
+}
+
+.policy-content .placeholder-note {
+  background: var(--green-50);
+  border: 1px dashed var(--green-600);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
 /* ── Admin dashboard ────────────────────────────────────────────────── */
 
 .stat-grid {
@@ -631,7 +711,7 @@ tbody tr:hover { background: var(--green-50); }
 /* ── Login gate ─────────────────────────────────────────────────────── */
 
 .login-wrap {
-  min-height: calc(100vh - 33px);
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -680,11 +760,10 @@ tbody tr:hover { background: var(--green-50); }
 
 @media (max-width: 640px) {
   .detail-grid { grid-template-columns: 1fr; }
-  .topbar .container { flex-wrap: wrap; row-gap: 2px; }
+  .hero { min-height: 50vh; }
 }
 
 @media (max-width: 600px) {
   .site-header .container { flex-wrap: wrap; row-gap: 10px; }
   .header-actions { width: 100%; justify-content: flex-end; }
-  .topbar .divider { display: none; }
 }

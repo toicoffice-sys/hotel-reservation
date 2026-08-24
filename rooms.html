@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DLSL Chez Rafael — Rooms &amp; Venues</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://toicoffice-sys.github.io" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <div class="brand">
+      <span class="brand-wordmark">Chez Rafael</span>
+    </div>
+    <nav class="site-nav">
+      <a href="index.html" onclick="navigateTop('index.html', '?'); return false;">Home</a>
+      <a href="#top">Rooms</a>
+      <a href="gallery.html" onclick="navigateTop('gallery.html', '?page=gallery'); return false;">Gallery</a>
+      <div class="nav-dropdown">
+        <button type="button" class="nav-dropdown-toggle">Policy</button>
+        <div class="nav-dropdown-menu">
+          <a href="safety-security.html" onclick="navigateTop('safety-security.html', '?page=safety-security'); return false;">Safety and Security Policy</a>
+          <a href="sustainability.html" onclick="navigateTop('sustainability.html', '?page=sustainability'); return false;">Sustainability Measures</a>
+          <a href="house-rules.html" onclick="navigateTop('house-rules.html', '?page=house-rules'); return false;">House Rules</a>
+          <a href="facilities-rules.html" onclick="navigateTop('facilities-rules.html', '?page=facilities-rules'); return false;">Facilities Rules and Regulations</a>
+        </div>
+      </div>
+    </nav>
+    <div class="header-actions">
+      <a href="admin.html" onclick="navigateTop('admin.html', '?page=admin'); return false;">Admin Login</a>
+      <a href="index.html?book=1" class="btn-book" onclick="navigateTop('index.html?book=1', '?book=1'); return false;">Book Now</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero" id="top">
+  <div class="container">
+    <p class="eyebrow">DLSL Guest House</p>
+    <h2>Rooms &amp; Venues</h2>
+    <p>Compare room types, rates, and capacity, then book directly from the card that fits your stay. Standard check-in begins at 2:00 PM.</p>
+  </div>
+</section>
+
+<section class="section" id="roomsSection">
+  <div class="container">
+    <div class="section-title">
+      <h3>Rooms &amp; Venues</h3>
+    </div>
+    <div class="room-grid" id="roomGrid">
+      <!-- room cards injected by rooms.js -->
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <p class="footer-links">
+      <a href="safety-security.html" onclick="navigateTop('safety-security.html', '?page=safety-security'); return false;">Safety and Security Policy</a>
+      <span class="sep">&middot;</span>
+      <a href="sustainability.html" onclick="navigateTop('sustainability.html', '?page=sustainability'); return false;">Sustainability Measures</a>
+      <span class="sep">&middot;</span>
+      <a href="house-rules.html" onclick="navigateTop('house-rules.html', '?page=house-rules'); return false;">House Rules</a>
+      <span class="sep">&middot;</span>
+      <a href="facilities-rules.html" onclick="navigateTop('facilities-rules.html', '?page=facilities-rules'); return false;">Facilities Rules and Regulations</a>
+    </p>
+    <p>DLSL Chez Rafael Hotel Reservation System &middot; Guest House Administration</p>
+    <p class="footer-contact"><strong>TEL NO.</strong> : (043) 756-5555 &nbsp;|&nbsp; <strong>E-MAIL</strong> : info@dlsl.edu.ph</p>
+  </div>
+</footer>
+
+<script src="common.js"></script>
+<script src="rooms.js"></script>
+</body>
+</html>

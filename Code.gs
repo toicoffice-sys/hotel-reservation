@@ -62,17 +62,35 @@ function doGet(e) {
   }
 }
 
-// Serves the guest booking page (default) or admin dashboard (?page=admin).
-// Only reached when no `action` param is present, so it never shadows the
-// JSON API above.
+// Maps ?page= to a template file. Only reached when no `action` param is
+// present, so it never shadows the JSON API above.
+var PAGE_TEMPLATES_ = {
+  admin: 'Admin',
+  rooms: 'Rooms',
+  gallery: 'Gallery',
+  'safety-security': 'SafetySecurity',
+  sustainability: 'Sustainability',
+  'house-rules': 'HouseRules',
+  'facilities-rules': 'FacilitiesRules'
+};
+
 function renderPage_(e) {
-  var page = e && e.parameter && e.parameter.page === 'admin' ? 'Admin' : 'Index';
-  return HtmlService.createTemplateFromFile(page).evaluate()
+  var param = e && e.parameter ? e.parameter.page : null;
+  var page = PAGE_TEMPLATES_[param] || 'Index';
+  var template = HtmlService.createTemplateFromFile(page);
+  // The visible content actually runs inside a sandboxed iframe whose own
+  // location never reflects the original request's query string, so
+  // Index.html can't just read ?room=/?book= off window.location — the
+  // Apps Script build embeds these values server-side instead (see
+  // deploy.sh).
+  template.preselectRoom = (e && e.parameter && e.parameter.room) ? e.parameter.room : '';
+  template.showBooking = !!(e && e.parameter && e.parameter.book);
+  return template.evaluate()
     .setTitle('DLSL Chez Rafael')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// Used by Index.html/Admin.html templates to inline Styles.html/*Script.html.
+// Used by Index.html/Rooms.html/Admin.html templates to inline Styles.html/*Script.html.
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }

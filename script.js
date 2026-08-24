@@ -1,50 +1,10 @@
 // DLSL Chez Rafael Hotel Reservation System — public booking portal logic
-
-// Fill this in after deploying the Apps Script web app (see README.md).
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbysMtfkO4-tuzx-dK_CvWqqDlf3rBk4nOSo6w60UTeak6y6Fq1AEuEymA06NuoD09aODg/exec';
-
-// Fallback room data, used only if the live /getRooms call fails (e.g. before
-// SCRIPT_URL is configured). The deployed Rooms sheet is the source of truth.
-const FALLBACK_ROOMS = [
-  { roomType: 'Standard Room', inventory: 8, rate: 2500, includedGuests: 2, maxGuests: 4 },
-  { roomType: 'Executive Room', inventory: 8, rate: 4000, includedGuests: 2, maxGuests: 4 },
-  { roomType: 'Family Suite', inventory: 8, rate: 6000, includedGuests: 4, maxGuests: 8 },
-  { roomType: 'Event Place', inventory: 1, rate: 15000, includedGuests: 80, maxGuests: 80 }
-];
-
-const ROOM_ICONS = {
-  'Standard Room': '🛏️',
-  'Executive Room': '🏨',
-  'Family Suite': '👨‍👩‍👧‍👦',
-  'Event Place': '🎪'
-};
-
-const ROOM_IMAGES = {
-  'Standard Room': 'images/rooms/standard-room.jpg',
-  'Executive Room': 'images/rooms/executive-room.jpg',
-  'Family Suite': 'images/rooms/family-suite.jpg',
-  'Event Place': 'images/rooms/event-place.jpg'
-};
+// Shared room data/API helpers (SCRIPT_URL, ROOM_IMAGES, fetchRooms, etc.) live
+// in common.js, loaded before this file.
 
 const LATE_CHECKOUT_GRACE_MINUTES = 12 * 60 + 15;
 const LATE_CHECKOUT_FEE_PER_HOUR = 200;
 const MATTRESS_FEE_PER_UNIT = 200;
-const EXTRA_GUEST_FEE = 400;
-
-const GALLERY_PHOTOS = [
-  { src: 'images/gallery/exterior-front.jpg', caption: 'DLSL Chez Rafael — Main Facade' },
-  { src: 'images/gallery/entrance.jpg', caption: 'Main Entrance' },
-  { src: 'images/gallery/exterior-street.jpg', caption: 'Street View & Walkway' },
-  { src: 'images/gallery/lobby-lounge.jpg', caption: 'Lobby Lounge' },
-  { src: 'images/gallery/outdoor-patio.jpg', caption: 'Outdoor Patio Seating' },
-  { src: 'images/gallery/lounge-bar.jpg', caption: 'Lounge & Bar' },
-  { src: 'images/gallery/bar-counter.jpg', caption: 'Bar Counter' },
-  { src: 'images/gallery/restaurant-dining.jpg', caption: 'Restaurant Dining Area' },
-  { src: 'images/gallery/table-setting.jpg', caption: 'Fine Dining Table Setting' },
-  { src: 'images/gallery/conference-room.jpg', caption: 'Conference Room' },
-  { src: 'images/gallery/event-hall.jpg', caption: 'Event Hall' },
-  { src: 'images/gallery/event-hall-alt.jpg', caption: 'Event Hall — Alternate View' }
-];
 
 let rooms = [];
 
@@ -53,9 +13,7 @@ document.addEventListener('DOMContentLoaded', init);
 async function init() {
   // Render everything that doesn't depend on the backend immediately, so a
   // slow or hung Apps Script response never blocks the whole page.
-  renderGallery();
   setDefaultDates();
-  renderRoomCardsLoading();
 
   document.getElementById('roomType').addEventListener('change', onRoomChange);
   ['guests', 'checkIn', 'checkInTime', 'checkOut', 'checkOutTime', 'mattressQty']
@@ -64,33 +22,34 @@ async function init() {
   document.getElementById('checkAvailabilityBtn').addEventListener('click', onCheckAvailability);
   document.getElementById('bookingForm').addEventListener('submit', onSubmitReservation);
   document.getElementById('changeRoomBtn').addEventListener('click', hideBookingForm);
-  document.getElementById('roomModalClose').addEventListener('click', closeRoomModal);
-  document.getElementById('roomModal').addEventListener('click', e => {
-    if (e.target.id === 'roomModal') closeRoomModal();
-  });
 
   updateSummary();
 
   // Rooms depend on the backend and can be slow — fetch in the background
   // without blocking the rest of the page.
   rooms = await fetchRooms();
-  renderRoomCards();
   populateRoomSelect();
   onRoomChange();
-}
 
-function renderRoomCardsLoading() {
-  document.getElementById('roomGrid').innerHTML =
-    '<div class="empty-state">Loading rooms &amp; venues...</div>';
-}
-
-const API_TIMEOUT_MS = 20000;
-
-async function apiGet(params) {
-  const url = new URL(SCRIPT_URL);
-  Object.keys(params).forEach(k => { if (params[k] !== undefined && params[k] !== '') url.searchParams.set(k, params[k]); });
-  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(API_TIMEOUT_MS) });
-  return res.json();
+  // Arriving from a "Book Now" click elsewhere: a room card on rooms.html
+  // preselects that room (?room=), while the header's own Book Now button
+  // (on any page) just wants the form shown with nothing preselected
+  // (?book=1). On the Apps Script deployment the visible content runs
+  // inside a sandboxed iframe whose own location never reflects the
+  // request's query string, so the GAS_* globals (injected server-side by
+  // Code.gs, see deploy.sh) take priority when present; GitHub Pages has no
+  // such iframe and just uses the real query string.
+  const preselect = (typeof GAS_PRESELECT_ROOM !== 'undefined' && GAS_PRESELECT_ROOM)
+    ? GAS_PRESELECT_ROOM
+    : new URLSearchParams(location.search).get('room');
+  const showBookingFlag = (typeof GAS_SHOW_BOOKING !== 'undefined')
+    ? GAS_SHOW_BOOKING
+    : new URLSearchParams(location.search).has('book');
+  if (preselect && getRoom(preselect)) {
+    selectRoomAndScroll(preselect);
+  } else if (showBookingFlag) {
+    showBookingFormAndScroll();
+  }
 }
 
 async function apiPost(body) {
@@ -103,20 +62,8 @@ async function apiPost(body) {
   return res.json();
 }
 
-async function fetchRooms() {
-  try {
-    const data = await apiGet({ action: 'getRooms' });
-    if (data.ok && data.rooms && data.rooms.length) return data.rooms;
-  } catch (err) { /* fall through to fallback */ }
-  return FALLBACK_ROOMS;
-}
-
 function getRoom(roomType) {
   return rooms.find(r => r.roomType === roomType) || null;
-}
-
-function formatCurrency(n) {
-  return 'PHP ' + Number(n || 0).toLocaleString('en-PH');
 }
 
 function setDefaultDates() {
@@ -131,85 +78,24 @@ function toDateInputValue(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-// ── Room cards & modal ───────────────────────────────────────────────────
-
-function renderRoomCards() {
-  const grid = document.getElementById('roomGrid');
-  grid.innerHTML = rooms.map(room => `
-    <div class="room-card">
-      <div class="thumb">${ROOM_IMAGES[room.roomType]
-        ? `<img src="${ROOM_IMAGES[room.roomType]}" alt="${room.roomType}" loading="lazy" />`
-        : (ROOM_ICONS[room.roomType] || '🏠')}</div>
-      <div class="body">
-        <h4>${room.roomType}</h4>
-        <div class="rate">${formatCurrency(room.rate)} <span>/ ${room.roomType === 'Event Place' ? 'day' : 'night'}</span></div>
-        <div class="meta">Includes ${room.includedGuests} guests &middot; Max ${room.maxGuests} guests</div>
-        <div class="meta">${room.inventory} unit${room.inventory > 1 ? 's' : ''} available</div>
-        <div class="actions">
-          <button class="btn btn-outline" data-details="${room.roomType}">View Details</button>
-          <button class="btn btn-primary" data-select="${room.roomType}">Book Now</button>
-        </div>
-      </div>
-    </div>
-  `).join('');
-
-  grid.querySelectorAll('[data-details]').forEach(btn =>
-    btn.addEventListener('click', () => openRoomModal(btn.getAttribute('data-details'))));
-  grid.querySelectorAll('[data-select]').forEach(btn =>
-    btn.addEventListener('click', () => selectRoomAndScroll(btn.getAttribute('data-select'))));
-}
-
-// ── Facility gallery ──────────────────────────────────────────────────────
-
-function renderGallery() {
-  const grid = document.getElementById('galleryGrid');
-  grid.innerHTML = GALLERY_PHOTOS.map(photo => `
-    <div class="gallery-item">
-      <img src="${photo.src}" alt="${photo.caption}" loading="lazy" />
-      <div class="caption">${photo.caption}</div>
-    </div>
-  `).join('');
-}
-
-function openRoomModal(roomType) {
-  const room = getRoom(roomType);
-  if (!room) return;
-  document.getElementById('roomModalTitle').textContent = room.roomType;
-  document.getElementById('roomModalBody').innerHTML = `
-    <div class="detail-grid">
-      <div class="k">Rate</div><div class="v">${formatCurrency(room.rate)} / ${room.roomType === 'Event Place' ? 'day' : 'night'}</div>
-      <div class="k">Included Guests</div><div class="v">${room.includedGuests}</div>
-      <div class="k">Maximum Guests</div><div class="v">${room.maxGuests}</div>
-      <div class="k">Units Available</div><div class="v">${room.inventory}</div>
-      <div class="k">Extra Guest Fee</div><div class="v">${formatCurrency(EXTRA_GUEST_FEE)} / guest beyond included</div>
-    </div>
-    <div style="margin-top:18px;">
-      <button class="btn btn-primary" data-select="${room.roomType}">Book This Room</button>
-    </div>
-  `;
-  document.getElementById('roomModalBody').querySelector('[data-select]')
-    .addEventListener('click', () => { closeRoomModal(); selectRoomAndScroll(room.roomType); });
-  document.getElementById('roomModal').classList.add('open');
-}
-
-function closeRoomModal() {
-  document.getElementById('roomModal').classList.remove('open');
-}
-
 function selectRoomAndScroll(roomType) {
   document.getElementById('roomType').value = roomType;
   onRoomChange();
-  showBookingForm();
-  document.getElementById('bookingSection').scrollIntoView({ behavior: 'smooth' });
+  showBookingFormAndScroll();
 }
 
 function showBookingForm() {
   document.getElementById('bookingSection').hidden = false;
 }
 
+function showBookingFormAndScroll() {
+  showBookingForm();
+  document.getElementById('bookingSection').scrollIntoView({ behavior: 'smooth' });
+}
+
 function hideBookingForm() {
-  document.getElementById('bookingSection').hidden = true;
-  document.getElementById('roomGrid').scrollIntoView({ behavior: 'smooth' });
+  // Room selection now lives on rooms.html — send the guest back there.
+  navigateTop('rooms.html', '?page=rooms');
 }
 
 function populateRoomSelect() {

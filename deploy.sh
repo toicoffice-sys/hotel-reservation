@@ -48,27 +48,97 @@ cp .clasp.json "$BUILD_DIR/.clasp.json"
 
 {
   echo "<script>"
+  sed "s|'images/|'${IMAGE_BASE}images/|g" common.js
+  echo "</script>"
+} > "$BUILD_DIR/CommonScript.html"
+
+{
+  echo "<script>"
   sed "s|'images/|'${IMAGE_BASE}images/|g" script.js
   echo "</script>"
 } > "$BUILD_DIR/IndexScript.html"
 
+{ echo "<script>"; cat rooms.js; echo "</script>"; } > "$BUILD_DIR/RoomsScript.html"
+
+{
+  echo "<script>"
+  sed "s|'images/|'${IMAGE_BASE}images/|g" gallery.js
+  echo "</script>"
+} > "$BUILD_DIR/GalleryScript.html"
+
 { echo "<script>"; cat admin.js; echo "</script>"; } > "$BUILD_DIR/AdminScript.html"
+
+# Shared by every page's footer, which links out to all four policy pages.
+POLICY_HREF_RULES=(
+  -e 's|href="safety-security.html"|href="?page=safety-security"|'
+  -e 's|href="sustainability.html"|href="?page=sustainability"|'
+  -e 's|href="house-rules.html"|href="?page=house-rules"|'
+  -e 's|href="facilities-rules.html"|href="?page=facilities-rules"|'
+)
 
 sed \
   -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
+  -e "s|<script src=\"common.js\"></script>|<?!= include('CommonScript'); ?>|" \
   -e "s|<script src=\"script.js\"></script>|<?!= include('IndexScript'); ?>|" \
   -e 's|href="admin.html"|href="?page=admin"|' \
+  -e 's|href="rooms.html"|href="?page=rooms"|' \
+  -e 's|href="gallery.html"|href="?page=gallery"|' \
+  "${POLICY_HREF_RULES[@]}" \
   -e "s|src=\"images/|src=\"${IMAGE_BASE}images/|g" \
+  -e "s|<body>|<body><script>var GAS_PRESELECT_ROOM = <?!= JSON.stringify(preselectRoom); ?>; var GAS_SHOW_BOOKING = <?!= JSON.stringify(showBooking); ?>;</script>|" \
   index.html > "$BUILD_DIR/Index.html"
+
+sed \
+  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
+  -e "s|<script src=\"common.js\"></script>|<?!= include('CommonScript'); ?>|" \
+  -e "s|<script src=\"rooms.js\"></script>|<?!= include('RoomsScript'); ?>|" \
+  -e 's|href="admin.html"|href="?page=admin"|' \
+  -e 's|href="gallery.html"|href="?page=gallery"|' \
+  -e 's|href="index.html?book=1"|href="?book=1"|' \
+  -e 's|href="index.html"|href="?"|' \
+  "${POLICY_HREF_RULES[@]}" \
+  -e "s|src=\"images/|src=\"${IMAGE_BASE}images/|g" \
+  rooms.html > "$BUILD_DIR/Rooms.html"
+
+sed \
+  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
+  -e "s|<script src=\"common.js\"></script>|<?!= include('CommonScript'); ?>|" \
+  -e "s|<script src=\"gallery.js\"></script>|<?!= include('GalleryScript'); ?>|" \
+  -e 's|href="admin.html"|href="?page=admin"|' \
+  -e 's|href="rooms.html"|href="?page=rooms"|' \
+  -e 's|href="index.html?book=1"|href="?book=1"|' \
+  -e 's|href="index.html"|href="?"|' \
+  "${POLICY_HREF_RULES[@]}" \
+  -e "s|src=\"images/|src=\"${IMAGE_BASE}images/|g" \
+  gallery.html > "$BUILD_DIR/Gallery.html"
 
 sed \
   -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
   -e "s|<script src=\"admin.js\"></script>|<?!= include('AdminScript'); ?>|" \
   -e 's|href="index.html"|href="?"|' \
+  "${POLICY_HREF_RULES[@]}" \
   -e "s|src=\"images/|src=\"${IMAGE_BASE}images/|g" \
   admin.html > "$BUILD_DIR/Admin.html"
 
-echo "✅  gas-build/ ready (Code.gs, appsscript.json, Styles.html, IndexScript.html, AdminScript.html, Index.html, Admin.html)"
+# Four policy pages share an identical build recipe (chrome + footer only,
+# no page-specific script beyond common.js's navigateTop).
+for pair in safety-security:SafetySecurity sustainability:Sustainability house-rules:HouseRules facilities-rules:FacilitiesRules; do
+  slug="${pair%%:*}"
+  name="${pair##*:}"
+  sed \
+    -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
+    -e "s|<script src=\"common.js\"></script>|<?!= include('CommonScript'); ?>|" \
+    -e 's|href="admin.html"|href="?page=admin"|' \
+    -e 's|href="rooms.html"|href="?page=rooms"|' \
+    -e 's|href="gallery.html"|href="?page=gallery"|' \
+    -e 's|href="index.html?book=1"|href="?book=1"|' \
+    -e 's|href="index.html"|href="?"|' \
+    "${POLICY_HREF_RULES[@]}" \
+    -e "s|src=\"images/|src=\"${IMAGE_BASE}images/|g" \
+    "${slug}.html" > "$BUILD_DIR/${name}.html"
+done
+
+echo "✅  gas-build/ ready (16 files: Code.gs + appsscript.json + Styles/CommonScript/IndexScript/RoomsScript/GalleryScript/AdminScript includes + Index/Rooms/Gallery/Admin/SafetySecurity/Sustainability/HouseRules/FacilitiesRules pages)"
 
 echo ""
 echo "📤  Pushing gas-build/ to Apps Script..."
