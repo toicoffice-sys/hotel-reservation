@@ -18,8 +18,10 @@ Web-based hotel management and booking system for institutional accommodation, b
 
 - **Event Place rate standardized to PHP 15,000/day** — the doc flagged a mismatch between the HTML display (15,000) and the JS pricing logic (8,000). Now there is one source of truth: the `Rooms` sheet.
 - **Room master data now lives in a `Rooms` sheet** instead of being hardcoded in JS/Apps Script (doc recommendation #7), which is also what fixed the rate inconsistency at the root.
-- **Admin dashboard is protected by email OTP login** (doc recommendation: "Admin security"). Only emails in `ADMIN_EMAILS` in `Code.gs` (currently just `toic.pm@dlsl.edu.ph`) can request a code; sessions last 24 hours. Add more admins by appending to that array.
+- **Admin dashboard is protected by email OTP login** (doc recommendation: "Admin security"). Only active emails in the `Admins` sheet can request a code; sessions last 24 hours. `ADMIN_EMAILS` in `Code.gs` (currently just `toic.pm@dlsl.edu.ph`) only seeds that sheet on first run — after that, manage admins from the dashboard's **User Management** tab (or edit the sheet directly), not by editing code.
 - **Approval/decline emails added** — the doc's recommendation "send approval or decline emails when the admin updates status" is implemented in `sendStatusUpdateEmail_`.
+- **Admin dashboard has four tabs**: Reservations (original table/review flow), **User Management** (add/remove admins — the last active admin can't remove themselves or be removed by anyone else), **Audit Log** (logins, admin changes, and reservation status updates, newest first, from the `AuditLog` sheet), and **Analytics** (revenue, approval rate, and room-type/monthly breakdowns computed client-side from the reservations already loaded — no extra API round trip).
+- **Guest-facing nav collapses into a hamburger menu below 780px** (`common.js`'s `initNavToggle`) — the Policy submenu toggles on click there since `:hover` doesn't fire on touch.
 
 Everything else (room categories, pricing rules, reservation fields, workflow) matches the doc as written.
 
@@ -62,4 +64,4 @@ Edit rates/inventory directly in the `Rooms` sheet — no code changes needed.
 
 ## Not yet implemented (per doc scope)
 
-User logins for guests, online payment, printable receipts, monthly occupancy/revenue reports, and a status-change audit log sheet.
+User logins for guests, online payment, and printable receipts. (Monthly occupancy/revenue reports and a status-change audit log are now covered by the admin dashboard's Analytics and Audit Log tabs.)
