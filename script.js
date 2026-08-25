@@ -31,12 +31,6 @@ async function init() {
   document.getElementById('calPrevBtn').addEventListener('click', () => shiftCalendarMonth(-1));
   document.getElementById('calNextBtn').addEventListener('click', () => shiftCalendarMonth(1));
 
-  document.getElementById('reservationResultClose').addEventListener('click', closeReservationResultModal);
-  document.getElementById('reservationResultOkBtn').addEventListener('click', closeReservationResultModal);
-  document.getElementById('reservationResultModal').addEventListener('click', e => {
-    if (e.target.id === 'reservationResultModal') closeReservationResultModal();
-  });
-
   updateSummary();
   loadCalendar();
 
@@ -308,18 +302,12 @@ function clearAlert() {
   document.getElementById('formAlert').innerHTML = '';
 }
 
-// A modal (rather than the inline banner above the form) for the actual
-// submit result, since by the time a guest scrolls down and clicks Submit
-// the inline banner is often out of view — this guarantees they see whether
-// the reservation actually went through.
-function showReservationResultModal(success, message) {
-  document.getElementById('reservationResultTitle').textContent = success ? 'Reservation Submitted' : 'Reservation Not Submitted';
-  document.getElementById('reservationResultBody').innerHTML = `<div class="alert alert-${success ? 'success' : 'error'}">${message}</div>`;
-  document.getElementById('reservationResultModal').classList.add('open');
-}
-
-function closeReservationResultModal() {
-  document.getElementById('reservationResultModal').classList.remove('open');
+// A native browser alert (rather than the inline banner above the form) for
+// the actual submit result, since by the time a guest scrolls down and
+// clicks Submit the inline banner is often out of view — this guarantees
+// they see whether the reservation actually went through.
+function showReservationResultAlert(success, message) {
+  window.alert((success ? 'Reservation Submitted\n\n' : 'Reservation Not Submitted\n\n') + message);
 }
 
 function readForm() {
@@ -395,19 +383,19 @@ async function onSubmitReservation(e) {
   try {
     const result = await apiPost({ action: 'submitReservation', ...f });
     if (!result.ok) {
-      showReservationResultModal(false, result.error);
+      showReservationResultAlert(false, result.error);
       return;
     }
-    showReservationResultModal(
+    showReservationResultAlert(
       true,
-      `Reservation ID: <strong>${result.reservationId}</strong> — Status: ${result.status}.<br>` +
+      `Reservation ID: ${result.reservationId}\nStatus: ${result.status}\n\n` +
       `A confirmation email has been sent to ${f.email}.`
     );
     document.getElementById('bookingForm').reset();
     setDefaultDates();
     updateSummary();
   } catch (err) {
-    showReservationResultModal(false, 'Could not reach the reservation system. Please try again later.');
+    showReservationResultAlert(false, 'Could not reach the reservation system. Please try again later.');
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Submit Reservation';
