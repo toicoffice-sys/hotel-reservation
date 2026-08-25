@@ -3,9 +3,18 @@
 //  Google Apps Script Web App · JSON over HTTP
 // ============================================================
 
+// Seed only — once the Admins sheet exists it is the source of truth (see
+// getActiveAdminEmails_). Kept here just to seed that sheet on first run.
 var ADMIN_EMAILS = ['toic.pm@dlsl.edu.ph'];
 var OTP_TTL_SECONDS = 5 * 60;
 var SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
+var ADMIN_HEADERS = ['Email', 'Role', 'Added By', 'Added At', 'Status'];
+var DEFAULT_ADMINS = ADMIN_EMAILS.map(function (e) {
+  return [e, 'Super Admin', 'System', new Date(), 'Active'];
+});
+
+var AUDIT_HEADERS = ['Timestamp', 'Actor Email', 'Action', 'Details'];
 
 var RESERVATION_HEADERS = [
   'Reservation ID', 'Timestamp', 'Full Name', 'Email', 'Phone', 'Affiliation',
@@ -52,6 +61,12 @@ function doGet(e) {
       case 'listReservations':
         requireSession_(e.parameter.token);
         return jsonOutput({ ok: true, reservations: getReservations() });
+      case 'listAdmins':
+        requireSession_(e.parameter.token);
+        return jsonOutput({ ok: true, admins: getAdmins_() });
+      case 'listAuditLog':
+        requireSession_(e.parameter.token);
+        return jsonOutput({ ok: true, logs: getAuditLog_() });
       case 'requestOtp':
         return jsonOutput(requestOtp(e.parameter.email));
       default:
@@ -109,10 +124,16 @@ function doPost(e) {
       case 'verifyOtp':
         return jsonOutput(verifyOtp(body.email, body.code));
       case 'updateReservationStatus':
-        requireSession_(body.token);
+        var statusSession = requireSession_(body.token);
         return jsonOutput(updateReservationStatus(
-          body.reservationId, body.newStatus, body.adminRemarks, body.reviewedBy
+          body.reservationId, body.newStatus, body.adminRemarks, statusSession.email
         ));
+      case 'addAdmin':
+        var addSession = requireSession_(body.token);
+        return jsonOutput(addAdmin(body.email, body.role, addSession.email));
+      case 'removeAdmin':
+        var removeSession = requireSession_(body.token);
+        return jsonOutput(removeAdmin(body.email, removeSession.email));
       default:
         return jsonOutput({ ok: false, error: 'Unknown or missing action.' });
     }
@@ -152,6 +173,118 @@ function getReservationsSheet_() {
 
 function getRoomsSheet_() {
   return getOrCreateSheet_('Rooms', ROOM_HEADERS, DEFAULT_ROOMS);
+}
+
+function getAdminsSheet_() {
+  return getOrCreateSheet_('Admins', ADMIN_HEADERS, DEFAULT_ADMINS);
+}
+
+function getAuditLogSheet_() {
+  return getOrCreateSheet_('AuditLog', AUDIT_HEADERS);
+}
+
+// ── Admin user management ───────────────────────────────────────────────────
+
+function getAdmins_() {
+  var sheet = getAdminsSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var tz = Session.getScriptTimeZone();
+  var values = sheet.getRange(2, 1, lastRow - 1, ADMIN_HEADERS.length).getValues();
+  return values
+    .filter(function (row) { return row[0] !== '' && row[0] !== null; })
+    .map(function (row) {
+      return {
+        email: String(row[0]).trim().toLowerCase(),
+        role: row[1] || 'Admin',
+        addedBy: row[2] || '',
+        addedAt: row[3] instanceof Date ? Utilities.formatDate(row[3], tz, 'yyyy-MM-dd HH:mm') : row[3],
+        status: row[4] || 'Active'
+      };
+    });
+}
+
+// Source of truth for who can request an OTP — the Admins sheet, seeded from
+// ADMIN_EMAILS on first run and editable afterward via addAdmin/removeAdmin.
+function getActiveAdminEmails_() {
+  return getAdmins_()
+    .filter(function (a) { return a.status === 'Active'; })
+    .map(function (a) { return a.email; });
+}
+
+function addAdmin(email, role, actorEmail) {
+  email = String(email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, error: 'Enter a valid email address.' };
+  }
+  var sheet = getAdminsSheet_();
+  var admins = getAdmins_();
+  var existingIndex = -1;
+  for (var i = 0; i < admins.length; i++) {
+    if (admins[i].email === email) { existingIndex = i; break; }
+  }
+  if (existingIndex !== -1 && admins[existingIndex].status === 'Active') {
+    return { ok: false, error: 'This email is already an active admin.' };
+  }
+  if (existingIndex !== -1) {
+    // Reactivate a previously removed admin instead of duplicating the row.
+    var rowNum = existingIndex + 2;
+    sheet.getRange(rowNum, 2, 1, 4).setValues([[role || 'Admin', actorEmail || '', new Date(), 'Active']]);
+  } else {
+    sheet.appendRow([email, role || 'Admin', actorEmail || '', new Date(), 'Active']);
+  }
+  logAudit_(actorEmail, 'Admin Added', email);
+  return { ok: true };
+}
+
+function removeAdmin(email, actorEmail) {
+  email = String(email || '').trim().toLowerCase();
+  actorEmail = String(actorEmail || '').trim().toLowerCase();
+  if (email === actorEmail) {
+    return { ok: false, error: 'You cannot remove your own admin access.' };
+  }
+  var admins = getAdmins_();
+  var activeCount = admins.filter(function (a) { return a.status === 'Active'; }).length;
+  var targetIndex = -1;
+  for (var i = 0; i < admins.length; i++) {
+    if (admins[i].email === email) { targetIndex = i; break; }
+  }
+  if (targetIndex === -1 || admins[targetIndex].status !== 'Active') {
+    return { ok: false, error: 'Admin not found.' };
+  }
+  if (activeCount <= 1) {
+    return { ok: false, error: 'At least one active admin is required.' };
+  }
+  var sheet = getAdminsSheet_();
+  sheet.getRange(targetIndex + 2, 5).setValue('Inactive');
+  logAudit_(actorEmail, 'Admin Removed', email);
+  return { ok: true };
+}
+
+// ── Audit log ────────────────────────────────────────────────────────────────
+
+function logAudit_(actorEmail, action, details) {
+  getAuditLogSheet_().appendRow([new Date(), actorEmail || '', action, details || '']);
+}
+
+function getAuditLog_() {
+  var sheet = getAuditLogSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var tz = Session.getScriptTimeZone();
+  var startRow = Math.max(2, lastRow - 499); // most recent 500 entries
+  var values = sheet.getRange(startRow, 1, lastRow - startRow + 1, AUDIT_HEADERS.length).getValues();
+  return values
+    .filter(function (row) { return row[0] !== '' && row[0] !== null; })
+    .map(function (row) {
+      return {
+        timestamp: row[0] instanceof Date ? Utilities.formatDate(row[0], tz, 'yyyy-MM-dd HH:mm:ss') : row[0],
+        actorEmail: row[1],
+        action: row[2],
+        details: row[3]
+      };
+    })
+    .reverse();
 }
 
 // ── Rooms (master data) ─────────────────────────────────────────────────────
@@ -409,6 +542,7 @@ function updateReservationStatus(reservationId, newStatus, adminRemarks, reviewe
       var email = sheet.getRange(rowNum, idx['Email'] + 1).getValue();
       var fullName = sheet.getRange(rowNum, idx['Full Name'] + 1).getValue();
       var roomType = sheet.getRange(rowNum, idx['Room Type'] + 1).getValue();
+      logAudit_(reviewedBy, 'Reservation ' + newStatus, reservationId + ' (' + fullName + ', ' + roomType + ')');
       if (newStatus === 'Approved' || newStatus === 'Rejected' || newStatus === 'Declined') {
         sendStatusUpdateEmail_(email, {
           reservationId: reservationId, fullName: fullName, roomType: roomType,
@@ -499,7 +633,7 @@ function requestOtp(email) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: 'Enter a valid email address.' };
   }
-  if (ADMIN_EMAILS.indexOf(email) === -1) {
+  if (getActiveAdminEmails_().indexOf(email) === -1) {
     return { ok: false, error: 'This email is not authorized for admin access.' };
   }
   var code = String(Math.floor(100000 + Math.random() * 900000));
@@ -527,6 +661,7 @@ function verifyOtp(email, code) {
   var sessions = loadSessions_();
   sessions[token] = { email: email, expiresAt: Date.now() + SESSION_TTL_MS };
   saveSessions_(sessions);
+  logAudit_(email, 'Login', 'Admin logged in');
   // Bundled with the reservations list so the dashboard can render immediately
   // after login instead of waiting on a second round trip.
   return { ok: true, token: token, email: email, reservations: getReservations() };

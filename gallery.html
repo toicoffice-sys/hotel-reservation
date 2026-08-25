@@ -17,7 +17,10 @@
     <div class="brand">
       <span class="brand-wordmark">Chez Rafael</span>
     </div>
-    <nav class="site-nav">
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="siteNav">
+      <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+    </button>
+    <nav class="site-nav" id="siteNav">
       <a href="index.html" onclick="navigateTop('index.html', '?'); return false;">Home</a>
       <a href="rooms.html" onclick="navigateTop('rooms.html', '?page=rooms'); return false;">Rooms</a>
       <a href="#top">Gallery</a>

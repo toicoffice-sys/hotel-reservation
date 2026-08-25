@@ -115,3 +115,43 @@ function renderRoomCardsLoading(gridEl) {
 function navigateTop(relativePath, queryString) {
   window.top.location.href = (window.top !== window.self) ? (SCRIPT_URL + queryString) : relativePath;
 }
+
+// ── Mobile hamburger nav (shared header on index/rooms/gallery/policy pages) ──
+
+function initNavToggle() {
+  const toggle = document.getElementById('navToggle');
+  const nav = document.querySelector('.site-nav');
+  if (!toggle || !nav) return;
+
+  function closeNav() {
+    nav.classList.remove('open');
+    toggle.setAttribute('aria-expanded', 'false');
+    const dropdown = nav.querySelector('.nav-dropdown');
+    if (dropdown) dropdown.classList.remove('open');
+  }
+
+  toggle.addEventListener('click', () => {
+    const isOpen = nav.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', String(isOpen));
+    if (!isOpen) closeNav();
+  });
+
+  // Plain nav links close the panel; the Policy dropdown toggles open/closed
+  // instead, since :hover doesn't fire on touch devices.
+  nav.querySelectorAll(':scope > a').forEach(a => a.addEventListener('click', closeNav));
+
+  const dropdown = nav.querySelector('.nav-dropdown');
+  if (dropdown) {
+    const dropdownToggle = dropdown.querySelector('.nav-dropdown-toggle');
+    dropdownToggle.addEventListener('click', () => dropdown.classList.toggle('open'));
+    dropdown.querySelectorAll('.nav-dropdown-menu a').forEach(a => a.addEventListener('click', closeNav));
+  }
+
+  document.addEventListener('click', e => {
+    if (nav.classList.contains('open') && !nav.contains(e.target) && e.target !== toggle && !toggle.contains(e.target)) {
+      closeNav();
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initNavToggle);

@@ -55,46 +55,141 @@
   </header>
 
   <div class="container" style="padding-top: 26px;">
-    <div class="stat-grid">
-      <div class="stat-card"><div class="label">Total Reservations</div><div class="value" id="statTotal">0</div></div>
-      <div class="stat-card"><div class="label">Pending Approval</div><div class="value" id="statPending">0</div></div>
-      <div class="stat-card"><div class="label">Approved</div><div class="value" id="statApproved">0</div></div>
-      <div class="stat-card"><div class="label">Rejected / Declined</div><div class="value" id="statRejected">0</div></div>
+    <nav class="admin-tabs" id="adminTabs">
+      <button type="button" class="admin-tab-btn active" data-tab="reservations">Reservations</button>
+      <button type="button" class="admin-tab-btn" data-tab="users">User Management</button>
+      <button type="button" class="admin-tab-btn" data-tab="auditlog">Audit Log</button>
+      <button type="button" class="admin-tab-btn" data-tab="analytics">Analytics</button>
+    </nav>
+
+    <div class="admin-panel" id="panel-reservations">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="label">Total Reservations</div><div class="value" id="statTotal">0</div></div>
+        <div class="stat-card"><div class="label">Pending Approval</div><div class="value" id="statPending">0</div></div>
+        <div class="stat-card"><div class="label">Approved</div><div class="value" id="statApproved">0</div></div>
+        <div class="stat-card"><div class="label">Rejected / Declined</div><div class="value" id="statRejected">0</div></div>
+      </div>
+
+      <div class="toolbar">
+        <input type="text" id="searchInput" placeholder="Search name, email, or reservation ID..." style="flex: 1; min-width: 220px;" />
+        <select id="statusFilter">
+          <option value="">All Statuses</option>
+          <option value="Pending Approval">Pending Approval</option>
+          <option value="Approved">Approved</option>
+          <option value="Rejected">Rejected</option>
+          <option value="Declined">Declined</option>
+        </select>
+        <select id="roomFilter">
+          <option value="">All Room Types</option>
+        </select>
+        <button class="btn btn-outline" id="refreshBtn">Refresh</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Reservation ID</th>
+              <th>Guest Name</th>
+              <th>Room Type</th>
+              <th>Check-In</th>
+              <th>Check-Out</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="reservationsBody">
+            <tr><td colspan="8" class="empty-state">Loading reservations...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <div class="toolbar">
-      <input type="text" id="searchInput" placeholder="Search name, email, or reservation ID..." style="flex: 1; min-width: 220px;" />
-      <select id="statusFilter">
-        <option value="">All Statuses</option>
-        <option value="Pending Approval">Pending Approval</option>
-        <option value="Approved">Approved</option>
-        <option value="Rejected">Rejected</option>
-        <option value="Declined">Declined</option>
-      </select>
-      <select id="roomFilter">
-        <option value="">All Room Types</option>
-      </select>
-      <button class="btn btn-outline" id="refreshBtn">Refresh</button>
+    <div class="admin-panel" id="panel-users" hidden>
+      <div class="section-title"><h3>User Management</h3></div>
+      <div id="usersAlert"></div>
+      <form class="toolbar" id="addAdminForm">
+        <input type="email" id="newAdminEmail" placeholder="admin@dlsl.edu.ph" required style="flex: 1; min-width: 220px;" />
+        <select id="newAdminRole">
+          <option value="Admin">Admin</option>
+          <option value="Super Admin">Super Admin</option>
+        </select>
+        <button type="submit" class="btn btn-primary" id="addAdminBtn">Add Admin</button>
+      </form>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Added By</th>
+              <th>Added At</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="adminsBody">
+            <tr><td colspan="6" class="empty-state">Loading admins...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Reservation ID</th>
-            <th>Guest Name</th>
-            <th>Room Type</th>
-            <th>Check-In</th>
-            <th>Check-Out</th>
-            <th>Total</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="reservationsBody">
-          <tr><td colspan="8" class="empty-state">Loading reservations...</td></tr>
-        </tbody>
-      </table>
+    <div class="admin-panel" id="panel-auditlog" hidden>
+      <div class="section-title">
+        <h3>Audit Log</h3>
+        <button class="btn btn-outline" id="refreshAuditBtn">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Actor</th>
+              <th>Action</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="auditBody">
+            <tr><td colspan="4" class="empty-state">Loading audit log...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="admin-panel" id="panel-analytics" hidden>
+      <div class="section-title"><h3>Analytics</h3></div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="label">Revenue (Approved)</div><div class="value" id="anRevenue">PHP 0</div></div>
+        <div class="stat-card"><div class="label">Approval Rate</div><div class="value" id="anApprovalRate">0%</div></div>
+        <div class="stat-card"><div class="label">Avg. Nights / Booking</div><div class="value" id="anAvgNights">0</div></div>
+        <div class="stat-card"><div class="label">Most Booked Room</div><div class="value" id="anTopRoom">—</div></div>
+      </div>
+
+      <div class="section-title" style="margin-top: 22px;"><h3>Reservations by Room Type</h3></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Room Type</th><th>Bookings</th><th>Approved</th><th>Revenue</th></tr>
+          </thead>
+          <tbody id="anRoomBody">
+            <tr><td colspan="4" class="empty-state">No reservations yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-title" style="margin-top: 22px;"><h3>Reservations by Month</h3></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Month</th><th>Reservations</th><th>Revenue (Approved)</th></tr>
+          </thead>
+          <tbody id="anMonthBody">
+            <tr><td colspan="3" class="empty-state">No reservations yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>

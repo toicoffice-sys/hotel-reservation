@@ -15,12 +15,18 @@ function navigateTop(relativePath, queryString) {
 let reservations = [];
 let currentReservationId = null;
 let pendingEmail = '';
+let admins = [];
+let usersLoaded = false;
+let auditLoaded = false;
 
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
   bindLoginEvents();
   bindDashboardEvents();
+  bindTabEvents();
+  bindUsersEvents();
+  bindAuditEvents();
 
   const token = localStorage.getItem(TOKEN_KEY);
   if (token) {
@@ -144,6 +150,8 @@ function applyReservations(list) {
   populateRoomFilter();
   renderStats();
   renderTable();
+  const analyticsPanel = document.getElementById('panel-analytics');
+  if (analyticsPanel && !analyticsPanel.hidden) renderAnalytics();
 }
 
 async function loadReservations(token) {
@@ -298,7 +306,6 @@ function closeReviewModal() {
 async function submitStatusUpdate(newStatus) {
   if (!currentReservationId) return;
   const adminRemarks = document.getElementById('adminRemarks').value;
-  const reviewedBy = localStorage.getItem(EMAIL_KEY) || 'Admin';
   const buttons = ['approveBtn', 'rejectBtn', 'declineBtn'].map(id => document.getElementById(id));
   buttons.forEach(b => b.disabled = true);
   try {
@@ -306,7 +313,7 @@ async function submitStatusUpdate(newStatus) {
       action: 'updateReservationStatus',
       token: getToken(),
       reservationId: currentReservationId,
-      newStatus, adminRemarks, reviewedBy
+      newStatus, adminRemarks
     });
     if (!result.ok) {
       alert(result.error || 'Could not update the reservation.');
@@ -319,4 +326,201 @@ async function submitStatusUpdate(newStatus) {
   } finally {
     buttons.forEach(b => b.disabled = false);
   }
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────
+
+function bindTabEvents() {
+  document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
+  });
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.admin-tab-btn').forEach(btn =>
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === tab));
+  document.querySelectorAll('.admin-panel').forEach(panel =>
+    panel.hidden = panel.id !== `panel-${tab}`);
+
+  if (tab === 'users' && !usersLoaded) loadAdmins();
+  if (tab === 'auditlog' && !auditLoaded) loadAuditLog();
+  if (tab === 'analytics') renderAnalytics();
+}
+
+// ── User management ─────────────────────────────────────────────────────
+
+function bindUsersEvents() {
+  document.getElementById('addAdminForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const email = document.getElementById('newAdminEmail').value.trim();
+    const role = document.getElementById('newAdminRole').value;
+    const alertEl = document.getElementById('usersAlert');
+    alertEl.innerHTML = '';
+    const btn = document.getElementById('addAdminBtn');
+    btn.disabled = true;
+    try {
+      const result = await apiPost({ action: 'addAdmin', token: getToken(), email, role });
+      if (!result.ok) {
+        alertEl.innerHTML = `<div class="alert alert-error">${result.error}</div>`;
+        return;
+      }
+      document.getElementById('newAdminEmail').value = '';
+      alertEl.innerHTML = '<div class="alert alert-success">Admin added.</div>';
+      loadAdmins();
+    } catch (err) {
+      alertEl.innerHTML = '<div class="alert alert-error">Could not reach the reservation system.</div>';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
+async function loadAdmins() {
+  const tbody = document.getElementById('adminsBody');
+  tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Loading admins...</td></tr>';
+  try {
+    const result = await apiGet({ action: 'listAdmins', token: getToken() });
+    if (!result.ok) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${result.error || 'Could not load admins.'}</td></tr>`;
+      return;
+    }
+    admins = result.admins;
+    usersLoaded = true;
+    renderAdmins();
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Could not reach the reservation system.</td></tr>';
+  }
+}
+
+function renderAdmins() {
+  const tbody = document.getElementById('adminsBody');
+  const myEmail = (localStorage.getItem(EMAIL_KEY) || '').toLowerCase();
+  if (!admins.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No admins found.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = admins.map(a => `
+    <tr>
+      <td>${a.email}</td>
+      <td>${a.role}</td>
+      <td><span class="pill ${a.status === 'Active' ? 'pill-approved' : 'pill-rejected'}">${a.status}</span></td>
+      <td>${a.addedBy || '—'}</td>
+      <td>${a.addedAt || '—'}</td>
+      <td>${a.status === 'Active' && a.email !== myEmail
+        ? `<button class="row-link" data-remove="${a.email}">Remove</button>`
+        : ''}</td>
+    </tr>
+  `).join('');
+
+  tbody.querySelectorAll('[data-remove]').forEach(btn =>
+    btn.addEventListener('click', () => removeAdminHandler(btn.getAttribute('data-remove'))));
+}
+
+async function removeAdminHandler(email) {
+  if (!confirm(`Remove admin access for ${email}?`)) return;
+  const alertEl = document.getElementById('usersAlert');
+  alertEl.innerHTML = '';
+  try {
+    const result = await apiPost({ action: 'removeAdmin', token: getToken(), email });
+    if (!result.ok) {
+      alertEl.innerHTML = `<div class="alert alert-error">${result.error}</div>`;
+      return;
+    }
+    loadAdmins();
+  } catch (err) {
+    alertEl.innerHTML = '<div class="alert alert-error">Could not reach the reservation system.</div>';
+  }
+}
+
+// ── Audit log ────────────────────────────────────────────────────────────
+
+function bindAuditEvents() {
+  document.getElementById('refreshAuditBtn').addEventListener('click', loadAuditLog);
+}
+
+async function loadAuditLog() {
+  const tbody = document.getElementById('auditBody');
+  tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Loading audit log...</td></tr>';
+  try {
+    const result = await apiGet({ action: 'listAuditLog', token: getToken() });
+    if (!result.ok) {
+      tbody.innerHTML = `<tr><td colspan="4" class="empty-state">${result.error || 'Could not load audit log.'}</td></tr>`;
+      return;
+    }
+    auditLoaded = true;
+    renderAuditLog(result.logs);
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Could not reach the reservation system.</td></tr>';
+  }
+}
+
+function renderAuditLog(logs) {
+  const tbody = document.getElementById('auditBody');
+  if (!logs.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No audit log entries yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = logs.map(l => `
+    <tr>
+      <td>${l.timestamp}</td>
+      <td>${l.actorEmail || '—'}</td>
+      <td>${l.action}</td>
+      <td>${l.details || '—'}</td>
+    </tr>
+  `).join('');
+}
+
+// ── Analytics (derived client-side from the already-loaded reservations) ──
+
+function renderAnalytics() {
+  const approved = reservations.filter(r => r['Status'] === 'Approved');
+  const totalRevenue = approved.reduce((sum, r) => sum + Number(r['Total Expenses'] || 0), 0);
+  const approvalRate = reservations.length ? Math.round((approved.length / reservations.length) * 100) : 0;
+  const avgNights = approved.length
+    ? (approved.reduce((sum, r) => sum + Number(r['Nights'] || 0), 0) / approved.length).toFixed(1)
+    : '0';
+
+  const byRoom = {};
+  reservations.forEach(r => {
+    const rt = r['Room Type'];
+    if (!byRoom[rt]) byRoom[rt] = { bookings: 0, approved: 0, revenue: 0 };
+    byRoom[rt].bookings++;
+    if (r['Status'] === 'Approved') {
+      byRoom[rt].approved++;
+      byRoom[rt].revenue += Number(r['Total Expenses'] || 0);
+    }
+  });
+  const topRoom = Object.keys(byRoom).sort((a, b) => byRoom[b].bookings - byRoom[a].bookings)[0] || '—';
+
+  document.getElementById('anRevenue').textContent = formatCurrency(totalRevenue);
+  document.getElementById('anApprovalRate').textContent = approvalRate + '%';
+  document.getElementById('anAvgNights').textContent = avgNights;
+  document.getElementById('anTopRoom').textContent = topRoom;
+
+  const roomTypes = Object.keys(byRoom).sort();
+  document.getElementById('anRoomBody').innerHTML = roomTypes.length ? roomTypes.map(rt => `
+    <tr>
+      <td>${rt}</td>
+      <td>${byRoom[rt].bookings}</td>
+      <td>${byRoom[rt].approved}</td>
+      <td>${formatCurrency(byRoom[rt].revenue)}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="4" class="empty-state">No reservations yet.</td></tr>';
+
+  const byMonth = {};
+  reservations.forEach(r => {
+    const month = String(r['Check-In'] || '').slice(0, 7); // YYYY-MM
+    if (!month) return;
+    if (!byMonth[month]) byMonth[month] = { count: 0, revenue: 0 };
+    byMonth[month].count++;
+    if (r['Status'] === 'Approved') byMonth[month].revenue += Number(r['Total Expenses'] || 0);
+  });
+  const months = Object.keys(byMonth).sort();
+  document.getElementById('anMonthBody').innerHTML = months.length ? months.map(m => `
+    <tr>
+      <td>${m}</td>
+      <td>${byMonth[m].count}</td>
+      <td>${formatCurrency(byMonth[m].revenue)}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="3" class="empty-state">No reservations yet.</td></tr>';
 }
