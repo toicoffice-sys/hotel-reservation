@@ -19,14 +19,25 @@ let admins = [];
 let usersLoaded = false;
 let auditLoaded = false;
 
+const CAL_MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+let adminCalYear, adminCalMonth; // adminCalMonth is 0-indexed
+
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
+  const today = new Date();
+  adminCalYear = today.getFullYear();
+  adminCalMonth = today.getMonth();
+
   bindLoginEvents();
   bindDashboardEvents();
   bindTabEvents();
   bindUsersEvents();
   bindAuditEvents();
+  bindCalendarEvents();
 
   const token = localStorage.getItem(TOKEN_KEY);
   if (token) {
@@ -152,6 +163,8 @@ function applyReservations(list) {
   renderTable();
   const analyticsPanel = document.getElementById('panel-analytics');
   if (analyticsPanel && !analyticsPanel.hidden) renderAnalytics();
+  const calendarPanel = document.getElementById('panel-calendar');
+  if (calendarPanel && !calendarPanel.hidden) renderAdminCalendar();
 }
 
 async function loadReservations(token) {
@@ -345,6 +358,7 @@ function switchTab(tab) {
   if (tab === 'users' && !usersLoaded) loadAdmins();
   if (tab === 'auditlog' && !auditLoaded) loadAuditLog();
   if (tab === 'analytics') renderAnalytics();
+  if (tab === 'calendar') renderAdminCalendar();
 }
 
 // ── User management ─────────────────────────────────────────────────────
@@ -523,4 +537,109 @@ function renderAnalytics() {
       <td>${formatCurrency(byMonth[m].revenue)}</td>
     </tr>
   `).join('') : '<tr><td colspan="3" class="empty-state">No reservations yet.</td></tr>';
+}
+
+// ── Reservation calendar (verify guest status per day) ─────────────────────
+
+function bindCalendarEvents() {
+  document.getElementById('adminCalPrevBtn').addEventListener('click', () => shiftAdminCalMonth(-1));
+  document.getElementById('adminCalNextBtn').addEventListener('click', () => shiftAdminCalMonth(1));
+  document.getElementById('dayDetailClose').addEventListener('click', closeDayDetailModal);
+  document.getElementById('dayDetailModal').addEventListener('click', e => {
+    if (e.target.id === 'dayDetailModal') closeDayDetailModal();
+  });
+}
+
+function shiftAdminCalMonth(delta) {
+  adminCalMonth += delta;
+  if (adminCalMonth < 0) { adminCalMonth = 11; adminCalYear--; }
+  if (adminCalMonth > 11) { adminCalMonth = 0; adminCalYear++; }
+  renderAdminCalendar();
+}
+
+function calPad2(n) { return String(n).padStart(2, '0'); }
+
+// Reservations occupying calendar day `dateStr` (yyyy-MM-dd) — every status
+// included (not just active ones) so the admin can see the full picture,
+// including past rejections/declines.
+function reservationsOnDate(dateStr) {
+  return reservations.filter(r => {
+    const ci = r['Check-In'], co = r['Check-Out'];
+    if (!ci || !co) return false;
+    if (ci === co) return dateStr === ci;
+    return dateStr >= ci && dateStr < co;
+  });
+}
+
+function renderAdminCalendar() {
+  document.getElementById('adminCalMonthLabel').textContent = `${CAL_MONTH_NAMES[adminCalMonth]} ${adminCalYear}`;
+
+  const grid = document.getElementById('adminCalGrid');
+  const daysInMonth = new Date(adminCalYear, adminCalMonth + 1, 0).getDate();
+  const firstWeekday = new Date(adminCalYear, adminCalMonth, 1).getDay();
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${calPad2(today.getMonth() + 1)}-${calPad2(today.getDate())}`;
+
+  let html = '';
+  for (let i = 0; i < firstWeekday; i++) html += '<button type="button" class="cal-day cal-empty" disabled></button>';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${adminCalYear}-${calPad2(adminCalMonth + 1)}-${calPad2(d)}`;
+    const dayReservations = reservationsOnDate(dateStr);
+    const statuses = new Set(dayReservations.map(r => r['Status']));
+
+    const classes = ['cal-day'];
+    if (statuses.has('Pending Approval')) classes.push('cal-day-pending');
+    else if (statuses.has('Approved')) classes.push('cal-day-approved');
+    else if (dayReservations.length) classes.push('cal-day-inactive');
+    if (dateStr === todayStr) classes.push('cal-today');
+
+    const title = dayReservations.length
+      ? `${dayReservations.length} reservation${dayReservations.length > 1 ? 's' : ''}`
+      : 'No reservations';
+
+    html += `<button type="button" class="${classes.join(' ')}" data-date="${dateStr}" title="${title}">${d}</button>`;
+  }
+
+  grid.innerHTML = html;
+  grid.querySelectorAll('.cal-day[data-date]').forEach(btn =>
+    btn.addEventListener('click', () => openDayDetail(btn.getAttribute('data-date'))));
+}
+
+function openDayDetail(dateStr) {
+  const dayReservations = reservationsOnDate(dateStr)
+    .sort((a, b) => String(a['Room Type']).localeCompare(String(b['Room Type'])));
+
+  const dateObj = new Date(`${dateStr}T00:00:00`);
+  document.getElementById('dayDetailTitle').textContent = dateObj.toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  const body = document.getElementById('dayDetailBody');
+  if (!dayReservations.length) {
+    body.innerHTML = '<p class="empty-state">No reservations on this date.</p>';
+  } else {
+    body.innerHTML = dayReservations.map(r => `
+      <div class="day-detail-row">
+        <div>
+          <strong>${r['Full Name']}</strong>
+          <div class="day-detail-meta">${r['Room Type']} &middot; ${r['Check-In']} ${r['Check-In Time'] || ''} &rarr; ${r['Check-Out']} ${r['Check-Out Time'] || ''}</div>
+        </div>
+        <div class="day-detail-actions">
+          <span class="pill ${statusPillClass(r['Status'])}">${r['Status']}</span>
+          <button type="button" class="row-link" data-review="${r['Reservation ID']}">Review</button>
+        </div>
+      </div>
+    `).join('');
+    body.querySelectorAll('[data-review]').forEach(btn => btn.addEventListener('click', () => {
+      closeDayDetailModal();
+      openReviewModal(btn.getAttribute('data-review'));
+    }));
+  }
+
+  document.getElementById('dayDetailModal').classList.add('open');
+}
+
+function closeDayDetailModal() {
+  document.getElementById('dayDetailModal').classList.remove('open');
 }

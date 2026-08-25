@@ -57,6 +57,7 @@
   <div class="container" style="padding-top: 26px;">
     <nav class="admin-tabs" id="adminTabs">
       <button type="button" class="admin-tab-btn active" data-tab="reservations">Reservations</button>
+      <button type="button" class="admin-tab-btn" data-tab="calendar">Calendar</button>
       <button type="button" class="admin-tab-btn" data-tab="users">User Management</button>
       <button type="button" class="admin-tab-btn" data-tab="auditlog">Audit Log</button>
       <button type="button" class="admin-tab-btn" data-tab="analytics">Analytics</button>
@@ -103,6 +104,27 @@
             <tr><td colspan="8" class="empty-state">Loading reservations...</td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <div class="admin-panel" id="panel-calendar" hidden>
+      <div class="section-title"><h3>Reservation Calendar</h3></div>
+      <div class="mini-calendar admin-calendar" id="adminCalendar">
+        <div class="mini-calendar-header">
+          <button type="button" class="btn btn-ghost" id="adminCalPrevBtn" aria-label="Previous month">&larr;</button>
+          <span class="mini-calendar-title" id="adminCalMonthLabel">—</span>
+          <button type="button" class="btn btn-ghost" id="adminCalNextBtn" aria-label="Next month">&rarr;</button>
+        </div>
+        <div class="mini-calendar-weekdays">
+          <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+        </div>
+        <div class="mini-calendar-grid admin-calendar-grid" id="adminCalGrid"></div>
+        <div class="mini-calendar-legend">
+          <span class="legend-item"><i class="legend-dot legend-pending"></i>Pending approval</span>
+          <span class="legend-item"><i class="legend-dot legend-available"></i>Approved</span>
+          <span class="legend-item"><i class="legend-dot legend-inactive"></i>Rejected / declined only</span>
+        </div>
+        <span class="hint">Tap a date to see who's booked and verify their status.</span>
       </div>
     </div>
 
@@ -190,6 +212,19 @@
           </tbody>
         </table>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Calendar day detail: lists guests booked that day and their status -->
+<div class="modal-backdrop" id="dayDetailModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="dayDetailTitle">Reservations</h3>
+      <button class="modal-close" id="dayDetailClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="dayDetailBody"></div>
     </div>
   </div>
 </div>
