@@ -750,6 +750,21 @@ a { color: inherit; }
   margin: 0 8px;
 }
 
+.footer-logos {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 28px;
+  margin-top: 8px;
+}
+
+.footer-logo {
+  height: 56px;
+  width: auto;
+  object-fit: contain;
+}
+
 .policy-content {
   max-width: 720px;
   color: var(--ink);
