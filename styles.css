@@ -757,6 +757,51 @@ a { color: inherit; }
   line-height: 1.7;
 }
 
+.policy-content p { margin: 0 0 12px; }
+
+.policy-content h4 {
+  margin: 28px 0 8px;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--green-800);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.policy-content h4:first-of-type { margin-top: 0; }
+
+.policy-content h5 {
+  margin: 18px 0 6px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.policy-content ul {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.policy-content li { margin-bottom: 6px; }
+
+.policy-content hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 28px 0;
+}
+
+.policy-content .callout {
+  margin-top: 24px;
+  margin-bottom: 0;
+  background: var(--green-50);
+  border-left: 3px solid var(--green-600);
+  border-radius: 8px;
+  padding: 14px 18px;
+  font-weight: 600;
+}
+
 .policy-content .placeholder-note {
   background: var(--green-50);
   border: 1px dashed var(--green-600);
