@@ -303,6 +303,15 @@ a { color: inherit; }
   gap: 18px;
 }
 
+/* Desktop: cap at 5 columns so all current room types (Single/Twin/Family/
+   Triple/Event Place) sit on one row instead of auto-fit's narrower 4-per-
+   row max wrapping the 5th card alone. Same breakpoint as "desktop" nav. */
+@media (min-width: 1025px) {
+  .room-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
 .room-card {
   background: var(--white);
   border-radius: var(--radius);
