@@ -346,6 +346,9 @@ function openReviewModal(reservationId) {
     <div class="k">Total Expenses</div><div class="v">${formatCurrency(r['Total Expenses'])}</div>
     <div class="k">Status</div><div class="v"><span class="pill ${statusPillClass(r['Status'])}">${r['Status']}</span></div>
     <div class="k">Special Requests</div><div class="v">${r['Special Requests'] || '—'}</div>
+    <div class="k">Proof of Payment</div><div class="v">${r['Proof of Payment']
+      ? `<a href="${r['Proof of Payment']}" target="_blank" rel="noopener">Open attachment &rarr;</a>`
+      : '—'}</div>
     <div class="k">Reviewed By</div><div class="v">${r['Reviewed By'] || '—'}</div>
     <div class="k">Reviewed At</div><div class="v">${r['Reviewed At'] || '—'}</div>
   `;

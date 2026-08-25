@@ -5,6 +5,8 @@
 const LATE_CHECKOUT_GRACE_MINUTES = 12 * 60 + 15;
 const LATE_CHECKOUT_FEE_PER_HOUR = 200;
 const MATTRESS_FEE_PER_UNIT = 200;
+const DLSL_EMAIL_DOMAIN = '@dlsl.edu.ph';
+const MAX_PROOF_OF_PAYMENT_BYTES = 5 * 1024 * 1024;
 
 let rooms = [];
 let calendarYear, calendarMonth; // calendarMonth is 0-indexed
@@ -24,6 +26,7 @@ async function init() {
   ['guests', 'checkIn', 'checkInTime', 'checkOut', 'checkOutTime', 'mattressQty']
     .forEach(id => document.getElementById(id).addEventListener('input', updateSummary));
   document.getElementById('checkIn').addEventListener('change', refreshCalendarSelection);
+  document.getElementById('email').addEventListener('input', updateProofOfPaymentVisibility);
 
   document.getElementById('checkAvailabilityBtn').addEventListener('click', onCheckAvailability);
   document.getElementById('bookingForm').addEventListener('submit', onSubmitReservation);
@@ -342,6 +345,29 @@ function readForm() {
   };
 }
 
+// ── Proof of payment (required for non-DLSL email addresses) ─────────────
+
+function isDlslEmail(email) {
+  return String(email || '').trim().toLowerCase().endsWith(DLSL_EMAIL_DOMAIN);
+}
+
+function updateProofOfPaymentVisibility() {
+  const email = document.getElementById('email').value;
+  const field = document.getElementById('proofOfPaymentField');
+  const needsProof = email.trim() !== '' && !isDlslEmail(email);
+  field.hidden = !needsProof;
+  if (!needsProof) document.getElementById('proofOfPayment').value = '';
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 async function onCheckAvailability() {
   const f = readForm();
   if (!f.roomType || !f.checkIn || !f.checkInTime || !f.checkOut || !f.checkOutTime) {
@@ -391,12 +417,31 @@ async function onSubmitReservation(e) {
     return;
   }
 
+  const proofFile = document.getElementById('proofOfPayment').files[0];
+  if (!isDlslEmail(f.email) && !proofFile) {
+    showAlert('Please attach a proof of payment — required for non-DLSL email addresses.', 'error');
+    return;
+  }
+  if (proofFile && proofFile.size > MAX_PROOF_OF_PAYMENT_BYTES) {
+    showAlert('Proof of payment file is too large (max 5 MB).', 'error');
+    return;
+  }
+
   const submitBtn = document.getElementById('submitBtn');
   submitBtn.disabled = true;
   submitBtn.textContent = 'Submitting...';
 
   try {
-    const result = await apiPost({ action: 'submitReservation', ...f });
+    let proofOfPaymentData = '', proofOfPaymentName = '', proofOfPaymentType = '';
+    if (proofFile) {
+      proofOfPaymentData = await fileToBase64(proofFile);
+      proofOfPaymentName = proofFile.name;
+      proofOfPaymentType = proofFile.type;
+    }
+    const result = await apiPost({
+      action: 'submitReservation', ...f,
+      proofOfPaymentData, proofOfPaymentName, proofOfPaymentType
+    });
     if (!result.ok) {
       showReservationResultModal(false, result.error);
       return;
@@ -409,6 +454,7 @@ async function onSubmitReservation(e) {
     document.getElementById('bookingForm').reset();
     setDefaultDates();
     updateSummary();
+    updateProofOfPaymentVisibility();
   } catch (err) {
     showReservationResultModal(false, 'Could not reach the reservation system. Please try again later.');
   } finally {

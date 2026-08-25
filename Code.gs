@@ -21,8 +21,12 @@ var RESERVATION_HEADERS = [
   'Check-In', 'Check-In Time', 'Check-Out', 'Check-Out Time', 'Guests',
   'Room Type', 'Room Rate', 'Nights', 'Late Checkout Fee', 'Mattress Fee',
   'Total Expenses', 'Special Requests', 'Status', 'Admin Remarks',
-  'Reviewed By', 'Reviewed At'
+  'Reviewed By', 'Reviewed At', 'Proof of Payment'
 ];
+
+// Guests booking with a non-DLSL email must attach proof of payment.
+var DLSL_EMAIL_DOMAIN = '@dlsl.edu.ph';
+var MAX_PROOF_OF_PAYMENT_BYTES = 5 * 1024 * 1024;
 
 var ROOM_HEADERS = ['Room Type', 'Inventory', 'Rate', 'Included Guests', 'Max Guests'];
 
@@ -169,8 +173,20 @@ function getOrCreateSheet_(name, headers, seedRows) {
   return sheet;
 }
 
+// Appends any header RESERVATION_HEADERS has that the live sheet doesn't yet
+// (e.g. 'Proof of Payment' added after the sheet already existed in
+// production) — additive only, so existing columns/data are never disturbed.
+function ensureTrailingHeaders_(sheet, headers) {
+  var lastCol = sheet.getLastColumn();
+  if (lastCol >= headers.length) return;
+  var missing = headers.slice(lastCol);
+  sheet.getRange(1, lastCol + 1, 1, missing.length).setValues([missing]);
+}
+
 function getReservationsSheet_() {
-  return getOrCreateSheet_('Reservations', RESERVATION_HEADERS);
+  var sheet = getOrCreateSheet_('Reservations', RESERVATION_HEADERS);
+  ensureTrailingHeaders_(sheet, RESERVATION_HEADERS);
+  return sheet;
 }
 
 function getRoomsSheet_() {
@@ -468,6 +484,13 @@ function submitReservation(body) {
     }
   }
 
+  if (!isDlslEmail_(body.email) && !body.proofOfPaymentData) {
+    return { ok: false, error: 'Please attach a proof of payment — required for non-DLSL email addresses.' };
+  }
+  if (body.proofOfPaymentData && estimateBase64Bytes_(body.proofOfPaymentData) > MAX_PROOF_OF_PAYMENT_BYTES) {
+    return { ok: false, error: 'Proof of payment file is too large (max 5 MB).' };
+  }
+
   var room = getRoomByType_(body.roomType);
   if (!room) return { ok: false, error: 'Unknown room type.' };
 
@@ -495,6 +518,14 @@ function submitReservation(body) {
   var pricing = computePricing_(room, start, end, checkOutTime, guests, Number(body.mattressQty || 0));
 
   var reservationId = 'RES-' + Math.floor(Date.now() / 1000);
+
+  var proofOfPaymentUrl = '';
+  if (body.proofOfPaymentData) {
+    proofOfPaymentUrl = saveProofOfPayment_(
+      body.proofOfPaymentData, body.proofOfPaymentName, body.proofOfPaymentType, reservationId
+    );
+  }
+
   var sheet = getReservationsSheet_();
   sheet.appendRow([
     reservationId,
@@ -518,7 +549,8 @@ function submitReservation(body) {
     'Pending Approval',
     '',
     '',
-    ''
+    '',
+    proofOfPaymentUrl
   ]);
 
   sendReservationEmail(body.email, {
@@ -539,6 +571,46 @@ function submitReservation(body) {
     status: 'Pending Approval',
     pricing: pricing
   };
+}
+
+function isDlslEmail_(email) {
+  var e = String(email || '').trim().toLowerCase();
+  return e.length > DLSL_EMAIL_DOMAIN.length && e.slice(-DLSL_EMAIL_DOMAIN.length) === DLSL_EMAIL_DOMAIN;
+}
+
+// Base64 -> byte-size estimate (no need to decode just to check length).
+function estimateBase64Bytes_(base64) {
+  var s = String(base64 || '');
+  var padding = s.slice(-2) === '==' ? 2 : (s.slice(-1) === '=' ? 1 : 0);
+  return Math.floor(s.length * 0.75) - padding;
+}
+
+// Uploads a guest's proof-of-payment attachment to a dedicated Drive folder
+// (created once, reused via Script Properties) and returns a link an admin
+// can open from the reservation review modal.
+function saveProofOfPayment_(base64Data, fileName, mimeType, reservationId) {
+  var decoded = Utilities.base64Decode(base64Data);
+  var safeName = String(fileName || 'proof-of-payment').replace(/[\/\\]/g, '_');
+  var blob = Utilities.newBlob(decoded, mimeType || 'application/octet-stream', reservationId + ' — ' + safeName);
+  var folder = getProofOfPaymentFolder_();
+  var file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return file.getUrl();
+}
+
+function getProofOfPaymentFolder_() {
+  var props = PropertiesService.getScriptProperties();
+  var folderId = props.getProperty('PROOF_OF_PAYMENT_FOLDER_ID');
+  if (folderId) {
+    try {
+      return DriveApp.getFolderById(folderId);
+    } catch (err) {
+      // Folder was deleted/moved out from under us — fall through and remake it.
+    }
+  }
+  var folder = DriveApp.createFolder('DLSL Chez Rafael — Proof of Payment');
+  props.setProperty('PROOF_OF_PAYMENT_FOLDER_ID', folder.getId());
+  return folder;
 }
 
 // Mirrors the pricing logic used client-side for the live cost summary, kept
