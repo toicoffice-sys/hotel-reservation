@@ -180,6 +180,22 @@ a { color: inherit; }
   display: block;
 }
 
+/* Bridges the 16px margin-top gap above the menu: without it, the pointer
+   crosses a strip that belongs to neither .nav-dropdown-toggle nor
+   .nav-dropdown-menu on its way down, :hover drops for an instant, and the
+   menu closes before a click can land. Desktop-only — mobile opens via a
+   persistent .open class from a tap, not :hover, so there's no gap to cross. */
+@media (min-width: 1025px) {
+  .nav-dropdown-menu::before {
+    content: "";
+    position: absolute;
+    top: -16px;
+    left: 0;
+    right: 0;
+    height: 16px;
+  }
+}
+
 .nav-dropdown-menu a {
   display: block;
   padding: 9px 12px;
