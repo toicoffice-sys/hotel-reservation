@@ -103,7 +103,7 @@ a { color: inherit; }
 
 .brand-wordmark {
   font-family: "Pinyon Script", cursive;
-  font-size: clamp(40px, 8vw, 60px);
+  font-size: clamp(46px, 9vw, 74px);
   line-height: 1;
   color: var(--white);
   white-space: nowrap;
@@ -247,10 +247,10 @@ a { color: inherit; }
     url('images/gallery/lobby-lounge.jpg');
   background-size: cover;
   background-position: left center;
-  min-height: 70vh;
+  min-height: 56vh;
   display: flex;
   align-items: center;
-  padding: 90px 0 64px;
+  padding: 72px 0 52px;
   color: var(--white);
 }
 
@@ -1057,7 +1057,7 @@ tbody tr:hover { background: var(--green-50); }
 
 @media (max-width: 640px) {
   .detail-grid { grid-template-columns: 1fr; }
-  .hero { min-height: 50vh; }
+  .hero { min-height: 40vh; }
 }
 
 @media (max-width: 600px) {
