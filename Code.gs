@@ -32,10 +32,14 @@ var ROOM_HEADERS = ['Room Type', 'Inventory', 'Rate', 'Included Guests', 'Max Gu
 
 // Single source of truth for room rates/capacity — the Rooms sheet.
 // Seeded on first run; edit values directly in the sheet afterward.
+// Standard Twin's rate/guest capacity is a placeholder (no prior entry to
+// inherit from, unlike the other three which kept their original rate/
+// capacity through the rename) — adjust directly in the Rooms sheet.
 var DEFAULT_ROOMS = [
-  ['Standard Room', 8, 2500, 2, 4],
-  ['Executive Room', 8, 4000, 2, 4],
-  ['Family Suite', 8, 6000, 4, 8],
+  ['Standard Single', 4, 2500, 2, 4],
+  ['Standard Twin', 2, 3000, 2, 4],
+  ['Standard Family', 1, 4000, 2, 4],
+  ['Standard Triple', 1, 6000, 4, 8],
   ['Event Place', 1, 15000, 80, 80]
 ];
 

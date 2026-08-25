@@ -6,23 +6,26 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbysMtfkO4-tuzx-dK_Cv
 // Fallback room data, used only if the live /getRooms call fails (e.g. before
 // SCRIPT_URL is configured). The deployed Rooms sheet is the source of truth.
 const FALLBACK_ROOMS = [
-  { roomType: 'Standard Room', inventory: 8, rate: 2500, includedGuests: 2, maxGuests: 4 },
-  { roomType: 'Executive Room', inventory: 8, rate: 4000, includedGuests: 2, maxGuests: 4 },
-  { roomType: 'Family Suite', inventory: 8, rate: 6000, includedGuests: 4, maxGuests: 8 },
+  { roomType: 'Standard Single', inventory: 4, rate: 2500, includedGuests: 2, maxGuests: 4 },
+  { roomType: 'Standard Twin', inventory: 2, rate: 3000, includedGuests: 2, maxGuests: 4 },
+  { roomType: 'Standard Family', inventory: 1, rate: 4000, includedGuests: 2, maxGuests: 4 },
+  { roomType: 'Standard Triple', inventory: 1, rate: 6000, includedGuests: 4, maxGuests: 8 },
   { roomType: 'Event Place', inventory: 1, rate: 15000, includedGuests: 80, maxGuests: 80 }
 ];
 
 const ROOM_ICONS = {
-  'Standard Room': '🛏️',
-  'Executive Room': '🏨',
-  'Family Suite': '👨‍👩‍👧‍👦',
+  'Standard Single': '🛏️',
+  'Standard Twin': '🛏️',
+  'Standard Family': '👨‍👩‍👧‍👦',
+  'Standard Triple': '🛏️',
   'Event Place': '🎪'
 };
 
 const ROOM_IMAGES = {
-  'Standard Room': 'images/rooms/standard-room.jpg',
-  'Executive Room': 'images/rooms/executive-room.jpg',
-  'Family Suite': 'images/rooms/family-suite.jpg',
+  'Standard Single': 'images/rooms/standard-single.jpg',
+  'Standard Twin': 'images/rooms/standard-twin.jpg',
+  'Standard Family': 'images/rooms/standard-family.jpg',
+  'Standard Triple': 'images/rooms/standard-triple.jpg',
   'Event Place': 'images/rooms/event-place.jpg'
 };
 

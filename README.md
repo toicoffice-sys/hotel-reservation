@@ -55,10 +55,17 @@ The `Reservations` and `Rooms` sheets are created automatically (with seeded roo
 
 | Room Type | Inventory | Rate | Included Guests | Max Guests |
 |---|---|---|---|---|
-| Standard Room | 8 | PHP 2,500/night | 2 | 4 |
-| Executive Room | 8 | PHP 4,000/night | 2 | 4 |
-| Family Suite | 8 | PHP 6,000/night | 4 | 8 |
+| Standard Single | 4 | PHP 2,500/night | 2 | 4 |
+| Standard Twin | 2 | PHP 3,000/night | 2 | 4 |
+| Standard Family | 1 | PHP 4,000/night | 2 | 4 |
+| Standard Triple | 1 | PHP 6,000/night | 4 | 8 |
 | Event Place | 1 | PHP 15,000/day | 80 | 80 |
+
+Standard Single/Family/Triple carried over their rate and guest capacity from
+the rooms they were renamed from (formerly Standard Room/Executive Room/
+Family Suite) — only the name and inventory count changed. Standard Twin is
+new with no prior entry to inherit from, so its PHP 3,000/night rate is a
+placeholder; adjust it directly in the sheet if it's wrong.
 
 Edit rates/inventory directly in the `Rooms` sheet — no code changes needed.
 
