@@ -19,6 +19,9 @@ let admins = [];
 let usersLoaded = false;
 let auditLoaded = false;
 
+const RESERVATIONS_PAGE_SIZE = 10;
+let reservationsPage = 1;
+
 const CAL_MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
@@ -158,6 +161,7 @@ function getToken() {
 
 function applyReservations(list) {
   reservations = list;
+  reservationsPage = 1;
   populateRoomFilter();
   renderStats();
   renderTable();
@@ -183,9 +187,9 @@ async function loadReservations(token) {
 }
 
 function bindDashboardEvents() {
-  document.getElementById('searchInput').addEventListener('input', renderTable);
-  document.getElementById('statusFilter').addEventListener('change', renderTable);
-  document.getElementById('roomFilter').addEventListener('change', renderTable);
+  document.getElementById('searchInput').addEventListener('input', () => { reservationsPage = 1; renderTable(); });
+  document.getElementById('statusFilter').addEventListener('change', () => { reservationsPage = 1; renderTable(); });
+  document.getElementById('roomFilter').addEventListener('change', () => { reservationsPage = 1; renderTable(); });
   document.getElementById('refreshBtn').addEventListener('click', () => loadReservations(getToken()));
 
   document.getElementById('logoutBtn').addEventListener('click', e => {
@@ -260,10 +264,16 @@ function renderTable() {
   const tbody = document.getElementById('reservationsBody');
   if (!filtered.length) {
     tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No reservations match your filters.</td></tr>';
+    renderPagination(0, 0, 0, 1);
     return;
   }
 
-  tbody.innerHTML = filtered.map(r => `
+  const totalPages = Math.max(1, Math.ceil(filtered.length / RESERVATIONS_PAGE_SIZE));
+  reservationsPage = Math.min(Math.max(1, reservationsPage), totalPages);
+  const start = (reservationsPage - 1) * RESERVATIONS_PAGE_SIZE;
+  const pageItems = filtered.slice(start, start + RESERVATIONS_PAGE_SIZE);
+
+  tbody.innerHTML = pageItems.map(r => `
     <tr>
       <td>${r['Reservation ID']}</td>
       <td>${r['Full Name']}</td>
@@ -278,6 +288,32 @@ function renderTable() {
 
   tbody.querySelectorAll('[data-id]').forEach(btn =>
     btn.addEventListener('click', () => openReviewModal(btn.getAttribute('data-id'))));
+
+  renderPagination(start + 1, Math.min(start + RESERVATIONS_PAGE_SIZE, filtered.length), filtered.length, totalPages);
+}
+
+function renderPagination(rangeStart, rangeEnd, totalCount, totalPages) {
+  const el = document.getElementById('reservationsPagination');
+  if (!totalCount) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = `
+    <span>Showing ${rangeStart}&ndash;${rangeEnd} of ${totalCount}</span>
+    <div class="pagination-controls">
+      <button type="button" class="btn btn-outline" id="paginationPrevBtn"${reservationsPage <= 1 ? ' disabled' : ''}>&larr; Prev</button>
+      <span class="pagination-page">Page ${reservationsPage} of ${totalPages}</span>
+      <button type="button" class="btn btn-outline" id="paginationNextBtn"${reservationsPage >= totalPages ? ' disabled' : ''}>Next &rarr;</button>
+    </div>
+  `;
+  document.getElementById('paginationPrevBtn').addEventListener('click', () => {
+    reservationsPage--;
+    renderTable();
+  });
+  document.getElementById('paginationNextBtn').addEventListener('click', () => {
+    reservationsPage++;
+    renderTable();
+  });
 }
 
 // ── Review modal ─────────────────────────────────────────────────────────
