@@ -141,10 +141,10 @@
           <label for="affiliation">Affiliation</label>
           <input type="text" id="affiliation" name="affiliation" placeholder="Organization / School / Guest" />
         </div>
-        <div class="field field-full" id="proofOfPaymentField" hidden>
-          <label for="proofOfPayment">Proof of Payment</label>
+        <div class="field field-full field-priority" id="proofOfPaymentField" hidden>
+          <label for="proofOfPayment">Proof of Payment <span class="required-badge">Required</span></label>
           <input type="file" id="proofOfPayment" name="proofOfPayment" accept="image/png,image/jpeg,image/webp,application/pdf" />
-          <span class="hint">Required for non-DLSL email addresses — attach a screenshot or PDF of your payment/deposit receipt (max 5 MB).</span>
+          <span class="hint">Non-DLSL email detected — attach a screenshot or PDF of your payment/deposit receipt (max 5 MB) before submitting.</span>
         </div>
         <div class="field field-full">
           <label for="specialRequests">Special Requests (optional)</label>

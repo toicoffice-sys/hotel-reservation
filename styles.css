@@ -504,6 +504,29 @@ a { color: inherit; }
 
 .field-full { grid-column: 1 / -1; }
 
+.field-priority {
+  background: #fdecea;
+  border: 1px solid #f3c6c1;
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.field-priority .hint { color: var(--danger); font-weight: 600; }
+
+.required-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: var(--white);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+}
+
 /* ── Mini availability calendar ────────────────────────────────────── */
 
 .mini-calendar {
