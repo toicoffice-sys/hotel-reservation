@@ -292,28 +292,34 @@ function renderTable() {
   renderPagination(start + 1, Math.min(start + RESERVATIONS_PAGE_SIZE, filtered.length), filtered.length, totalPages);
 }
 
-function renderPagination(rangeStart, rangeEnd, totalCount, totalPages) {
-  const el = document.getElementById('reservationsPagination');
+// Shared by any paginated table below — pass the container id, current
+// page/totalPages/totalCount, the visible range, and callbacks for Prev/Next.
+function renderPaginationControls(containerId, page, totalPages, totalCount, rangeStart, rangeEnd, onPrev, onNext) {
+  const el = document.getElementById(containerId);
   if (!totalCount) {
     el.innerHTML = '';
     return;
   }
+  const prevId = `${containerId}PrevBtn`;
+  const nextId = `${containerId}NextBtn`;
   el.innerHTML = `
     <span>Showing ${rangeStart}&ndash;${rangeEnd} of ${totalCount}</span>
     <div class="pagination-controls">
-      <button type="button" class="btn btn-outline" id="paginationPrevBtn"${reservationsPage <= 1 ? ' disabled' : ''}>&larr; Prev</button>
-      <span class="pagination-page">Page ${reservationsPage} of ${totalPages}</span>
-      <button type="button" class="btn btn-outline" id="paginationNextBtn"${reservationsPage >= totalPages ? ' disabled' : ''}>Next &rarr;</button>
+      <button type="button" class="btn btn-outline" id="${prevId}"${page <= 1 ? ' disabled' : ''}>&larr; Prev</button>
+      <span class="pagination-page">Page ${page} of ${totalPages}</span>
+      <button type="button" class="btn btn-outline" id="${nextId}"${page >= totalPages ? ' disabled' : ''}>Next &rarr;</button>
     </div>
   `;
-  document.getElementById('paginationPrevBtn').addEventListener('click', () => {
-    reservationsPage--;
-    renderTable();
-  });
-  document.getElementById('paginationNextBtn').addEventListener('click', () => {
-    reservationsPage++;
-    renderTable();
-  });
+  document.getElementById(prevId).addEventListener('click', onPrev);
+  document.getElementById(nextId).addEventListener('click', onNext);
+}
+
+function renderPagination(rangeStart, rangeEnd, totalCount, totalPages) {
+  renderPaginationControls(
+    'reservationsPagination', reservationsPage, totalPages, totalCount, rangeStart, rangeEnd,
+    () => { reservationsPage--; renderTable(); },
+    () => { reservationsPage++; renderTable(); }
+  );
 }
 
 // ── Review modal ─────────────────────────────────────────────────────────
@@ -484,6 +490,10 @@ async function removeAdminHandler(email) {
 
 // ── Audit log ────────────────────────────────────────────────────────────
 
+const AUDIT_PAGE_SIZE = 10;
+let auditLogs = [];
+let auditPage = 1;
+
 function bindAuditEvents() {
   document.getElementById('refreshAuditBtn').addEventListener('click', loadAuditLog);
 }
@@ -491,6 +501,7 @@ function bindAuditEvents() {
 async function loadAuditLog() {
   const tbody = document.getElementById('auditBody');
   tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Loading audit log...</td></tr>';
+  document.getElementById('auditPagination').innerHTML = '';
   try {
     const result = await apiGet({ action: 'listAuditLog', token: getToken() });
     if (!result.ok) {
@@ -498,19 +509,28 @@ async function loadAuditLog() {
       return;
     }
     auditLoaded = true;
-    renderAuditLog(result.logs);
+    auditLogs = result.logs;
+    auditPage = 1;
+    renderAuditLog();
   } catch (err) {
     tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Could not reach the reservation system.</td></tr>';
   }
 }
 
-function renderAuditLog(logs) {
+function renderAuditLog() {
   const tbody = document.getElementById('auditBody');
-  if (!logs.length) {
+  if (!auditLogs.length) {
     tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No audit log entries yet.</td></tr>';
+    renderAuditPagination(0, 0, 0, 1);
     return;
   }
-  tbody.innerHTML = logs.map(l => `
+
+  const totalPages = Math.max(1, Math.ceil(auditLogs.length / AUDIT_PAGE_SIZE));
+  auditPage = Math.min(Math.max(1, auditPage), totalPages);
+  const start = (auditPage - 1) * AUDIT_PAGE_SIZE;
+  const pageItems = auditLogs.slice(start, start + AUDIT_PAGE_SIZE);
+
+  tbody.innerHTML = pageItems.map(l => `
     <tr>
       <td>${l.timestamp}</td>
       <td>${l.actorEmail || '—'}</td>
@@ -518,6 +538,16 @@ function renderAuditLog(logs) {
       <td>${l.details || '—'}</td>
     </tr>
   `).join('');
+
+  renderAuditPagination(start + 1, Math.min(start + AUDIT_PAGE_SIZE, auditLogs.length), auditLogs.length, totalPages);
+}
+
+function renderAuditPagination(rangeStart, rangeEnd, totalCount, totalPages) {
+  renderPaginationControls(
+    'auditPagination', auditPage, totalPages, totalCount, rangeStart, rangeEnd,
+    () => { auditPage--; renderAuditLog(); },
+    () => { auditPage++; renderAuditLog(); }
+  );
 }
 
 // ── Analytics (derived client-side from the already-loaded reservations) ──
