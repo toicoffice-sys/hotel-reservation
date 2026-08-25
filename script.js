@@ -159,6 +159,14 @@ function calendarKey(roomType, year, month) {
   return `${roomType}|${year}-${pad2(month + 1)}`;
 }
 
+// A just-submitted reservation takes a unit off whatever room/date range it
+// booked, so any cached month view (guest or availability count) is stale
+// until re-fetched — clear it all rather than trying to patch just the
+// affected room/month.
+function clearCalendarCache() {
+  Object.keys(calendarCache).forEach(key => delete calendarCache[key]);
+}
+
 function shiftCalendarMonth(delta) {
   calendarMonth += delta;
   if (calendarMonth < 0) { calendarMonth = 11; calendarYear--; }
@@ -455,6 +463,11 @@ async function onSubmitReservation(e) {
     setDefaultDates();
     updateSummary();
     updateProofOfPaymentVisibility();
+    // The reservation just took a unit off this room/date range — any
+    // cached availability (calendar or the "X of Y available" check) is now
+    // stale, so clear it and reload so the next look shows the true count.
+    clearCalendarCache();
+    loadCalendar();
   } catch (err) {
     showReservationResultModal(false, 'Could not reach the reservation system. Please try again later.');
   } finally {
