@@ -58,6 +58,8 @@ function doGet(e) {
           e.parameter.roomType, e.parameter.checkIn, e.parameter.checkInTime,
           e.parameter.checkOut, e.parameter.checkOutTime
         ));
+      case 'getAvailabilityCalendar':
+        return jsonOutput(getAvailabilityCalendar(e.parameter.roomType, e.parameter.month));
       case 'listReservations':
         requireSession_(e.parameter.token);
         return jsonOutput({ ok: true, reservations: getReservations() });
@@ -393,6 +395,69 @@ function headerIndex_() {
   var idx = {};
   RESERVATION_HEADERS.forEach(function (h, i) { idx[h] = i; });
   return idx;
+}
+
+// Per-day availability for one room type over one calendar month, so the
+// booking form can render a small calendar of open/limited/full days before
+// the guest picks specific dates. monthStr is 'yyyy-MM'; defaults to the
+// current month. Public (no session) — same trust level as checkAvailability.
+function getAvailabilityCalendar(roomType, monthStr) {
+  var room = getRoomByType_(roomType);
+  if (!room) return { ok: false, error: 'Unknown room type.' };
+
+  var year, month; // month is 0-indexed
+  if (monthStr && /^\d{4}-\d{2}$/.test(monthStr)) {
+    var parts = monthStr.split('-');
+    year = Number(parts[0]);
+    month = Number(parts[1]) - 1;
+  } else {
+    var now = new Date();
+    year = now.getFullYear();
+    month = now.getMonth();
+  }
+
+  var tz = Session.getScriptTimeZone();
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  var days = [];
+  for (var d = 1; d <= daysInMonth; d++) {
+    days.push({
+      date: Utilities.formatDate(new Date(year, month, d), tz, 'yyyy-MM-dd'),
+      start: new Date(year, month, d, 0, 0, 0),
+      end: new Date(year, month, d + 1, 0, 0, 0),
+      bookedCount: 0
+    });
+  }
+
+  var sheet = getReservationsSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var idx = headerIndex_();
+    var values = sheet.getRange(2, 1, lastRow - 1, RESERVATION_HEADERS.length).getValues();
+    values.forEach(function (row) {
+      if (!row[idx['Reservation ID']]) return;
+      if (row[idx['Room Type']] !== roomType) return;
+      var status = row[idx['Status']];
+      if (status === 'Rejected' || status === 'Declined') return;
+
+      var existStart = parseSheetDateTime(row[idx['Check-In']], row[idx['Check-In Time']]);
+      var existEnd = parseSheetDateTime(row[idx['Check-Out']], row[idx['Check-Out Time']]);
+      days.forEach(function (day) {
+        if (existStart < day.end && existEnd > day.start) day.bookedCount++;
+      });
+    });
+  }
+
+  var result = days.map(function (day) {
+    var availableCount = Math.max(0, room.inventory - day.bookedCount);
+    return {
+      date: day.date,
+      bookedCount: day.bookedCount,
+      availableCount: availableCount,
+      status: availableCount <= 0 ? 'full' : (day.bookedCount > 0 ? 'partial' : 'available')
+    };
+  });
+
+  return { ok: true, roomType: roomType, inventory: room.inventory, year: year, month: month + 1, days: result };
 }
 
 function submitReservation(body) {

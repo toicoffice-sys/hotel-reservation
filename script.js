@@ -7,6 +7,7 @@ const LATE_CHECKOUT_FEE_PER_HOUR = 200;
 const MATTRESS_FEE_PER_UNIT = 200;
 
 let rooms = [];
+let calendarYear, calendarMonth; // calendarMonth is 0-indexed
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -15,15 +16,23 @@ async function init() {
   // slow or hung Apps Script response never blocks the whole page.
   setDefaultDates();
 
+  const today = new Date();
+  calendarYear = today.getFullYear();
+  calendarMonth = today.getMonth();
+
   document.getElementById('roomType').addEventListener('change', onRoomChange);
   ['guests', 'checkIn', 'checkInTime', 'checkOut', 'checkOutTime', 'mattressQty']
     .forEach(id => document.getElementById(id).addEventListener('input', updateSummary));
+  document.getElementById('checkIn').addEventListener('change', refreshCalendarSelection);
 
   document.getElementById('checkAvailabilityBtn').addEventListener('click', onCheckAvailability);
   document.getElementById('bookingForm').addEventListener('submit', onSubmitReservation);
   document.getElementById('changeRoomBtn').addEventListener('click', hideBookingForm);
+  document.getElementById('calPrevBtn').addEventListener('click', () => shiftCalendarMonth(-1));
+  document.getElementById('calNextBtn').addEventListener('click', () => shiftCalendarMonth(1));
 
   updateSummary();
+  loadCalendar();
 
   // Rooms depend on the backend and can be slow — fetch in the background
   // without blocking the rest of the page.
@@ -121,6 +130,117 @@ function onRoomChange() {
     guestsInput.removeAttribute('max');
   }
   updateSummary();
+  loadCalendar();
+}
+
+// ── Availability calendar ────────────────────────────────────────────────
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+// Keyed by "<roomType>|<year>-<month>" so switching back to a room/month
+// already viewed this session doesn't re-hit the backend.
+const calendarCache = {};
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+function calendarKey(roomType, year, month) {
+  return `${roomType}|${year}-${pad2(month + 1)}`;
+}
+
+function shiftCalendarMonth(delta) {
+  calendarMonth += delta;
+  if (calendarMonth < 0) { calendarMonth = 11; calendarYear--; }
+  if (calendarMonth > 11) { calendarMonth = 0; calendarYear++; }
+  loadCalendar();
+}
+
+async function loadCalendar() {
+  const grid = document.getElementById('calGrid');
+  const roomType = document.getElementById('roomType').value;
+  document.getElementById('calMonthLabel').textContent = `${MONTH_NAMES[calendarMonth]} ${calendarYear}`;
+
+  if (!roomType) {
+    grid.innerHTML = '<div class="mini-calendar-empty">Select a room type to view availability.</div>';
+    return;
+  }
+
+  const key = calendarKey(roomType, calendarYear, calendarMonth);
+  if (calendarCache[key]) {
+    renderCalendarGrid(calendarCache[key]);
+    return;
+  }
+
+  grid.innerHTML = '<div class="mini-calendar-empty">Loading availability...</div>';
+  try {
+    const result = await apiGet({
+      action: 'getAvailabilityCalendar',
+      roomType,
+      month: `${calendarYear}-${pad2(calendarMonth + 1)}`
+    });
+    if (!result.ok) {
+      grid.innerHTML = `<div class="mini-calendar-empty">${result.error || 'Could not load availability.'}</div>`;
+      return;
+    }
+    calendarCache[key] = result.days;
+    renderCalendarGrid(result.days);
+  } catch (err) {
+    grid.innerHTML = '<div class="mini-calendar-empty">Could not reach the reservation system.</div>';
+  }
+}
+
+function refreshCalendarSelection() {
+  const key = calendarKey(document.getElementById('roomType').value, calendarYear, calendarMonth);
+  if (calendarCache[key]) renderCalendarGrid(calendarCache[key]);
+}
+
+function renderCalendarGrid(days) {
+  const grid = document.getElementById('calGrid');
+  const firstWeekday = new Date(calendarYear, calendarMonth, 1).getDay();
+  const todayStr = toDateInputValue(new Date());
+  const selectedCheckIn = document.getElementById('checkIn').value;
+
+  let html = '';
+  for (let i = 0; i < firstWeekday; i++) html += '<button type="button" class="cal-day cal-empty" disabled></button>';
+
+  days.forEach(day => {
+    const dayNum = Number(day.date.slice(-2));
+    const isPast = day.date < todayStr;
+    const classes = ['cal-day'];
+    if (isPast) classes.push('cal-past');
+    else if (day.status === 'full') classes.push('cal-full');
+    else if (day.status === 'partial') classes.push('cal-partial');
+    if (day.date === todayStr) classes.push('cal-today');
+    if (day.date === selectedCheckIn) classes.push('cal-selected');
+
+    const disabled = isPast || day.status === 'full';
+    const title = isPast
+      ? 'Past date'
+      : day.status === 'full'
+        ? 'Fully booked'
+        : `${day.availableCount} of ${day.availableCount + day.bookedCount} available`;
+
+    html += `<button type="button" class="${classes.join(' ')}" data-date="${day.date}" title="${title}"${disabled ? ' disabled' : ''}>${dayNum}</button>`;
+  });
+
+  grid.innerHTML = html;
+
+  grid.querySelectorAll('.cal-day[data-date]:not(:disabled)').forEach(btn =>
+    btn.addEventListener('click', () => onCalendarDayClick(btn.getAttribute('data-date'))));
+}
+
+function onCalendarDayClick(dateStr) {
+  document.getElementById('checkIn').value = dateStr;
+  const checkOutInput = document.getElementById('checkOut');
+  if (!checkOutInput.value || checkOutInput.value <= dateStr) {
+    const nextDay = new Date(`${dateStr}T00:00:00`);
+    nextDay.setDate(nextDay.getDate() + 1);
+    checkOutInput.value = toDateInputValue(nextDay);
+  }
+  updateSummary();
+  refreshCalendarSelection();
 }
 
 // ── Pricing (mirrors backend computePricing_) ───────────────────────────

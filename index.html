@@ -72,6 +72,29 @@
           <span class="hint" id="guestsHint"></span>
         </div>
 
+        <div class="field field-full">
+          <label>Room Availability</label>
+          <div class="mini-calendar" id="miniCalendar">
+            <div class="mini-calendar-header">
+              <button type="button" class="btn btn-ghost" id="calPrevBtn" aria-label="Previous month">&larr;</button>
+              <span class="mini-calendar-title" id="calMonthLabel">—</span>
+              <button type="button" class="btn btn-ghost" id="calNextBtn" aria-label="Next month">&rarr;</button>
+            </div>
+            <div class="mini-calendar-weekdays">
+              <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+            </div>
+            <div class="mini-calendar-grid" id="calGrid">
+              <div class="mini-calendar-empty">Select a room type to view availability.</div>
+            </div>
+            <div class="mini-calendar-legend">
+              <span class="legend-item"><i class="legend-dot legend-available"></i>Available</span>
+              <span class="legend-item"><i class="legend-dot legend-partial"></i>Limited</span>
+              <span class="legend-item"><i class="legend-dot legend-full"></i>Fully booked</span>
+            </div>
+            <span class="hint">Tap an open date to set it as your check-in date.</span>
+          </div>
+        </div>
+
         <div class="field">
           <label for="checkIn">Check-In Date</label>
           <input type="date" id="checkIn" name="checkIn" required />

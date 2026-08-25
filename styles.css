@@ -488,6 +488,110 @@ a { color: inherit; }
 
 .field-full { grid-column: 1 / -1; }
 
+/* ── Mini availability calendar ────────────────────────────────────── */
+
+.mini-calendar {
+  background: var(--green-50);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px 16px;
+}
+
+.mini-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.mini-calendar-header .btn {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.mini-calendar-title {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+
+.mini-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.mini-calendar-weekdays span {
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mini-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  min-height: 40px;
+}
+
+.mini-calendar-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 14px 0;
+}
+
+.cal-day {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cal-day:hover:not(:disabled) { border-color: var(--green-600); }
+
+.cal-day.cal-partial { background: #fff4e0; color: var(--warn); }
+.cal-day.cal-full { background: #fdecea; color: var(--danger); }
+.cal-day.cal-past { background: transparent; color: var(--line); }
+.cal-day:disabled { cursor: not-allowed; }
+.cal-day.cal-empty { background: transparent; border: none; cursor: default; visibility: hidden; }
+.cal-day.cal-today { box-shadow: inset 0 0 0 2px var(--green-700); }
+.cal-day.cal-selected { background: var(--green-700); color: var(--white); }
+
+.mini-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.legend-item { display: inline-flex; align-items: center; gap: 5px; }
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-available { background: var(--green-600); }
+.legend-partial { background: var(--warn); }
+.legend-full { background: var(--danger); }
+
+.mini-calendar .hint { display: block; margin-top: 10px; }
+
 /* ── Pricing summary ────────────────────────────────────────────────── */
 
 .summary {
