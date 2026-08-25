@@ -802,6 +802,14 @@ a { color: inherit; }
   font-weight: 600;
 }
 
+.policy-content .signoff {
+  margin-top: 24px;
+  text-align: center;
+  font-style: italic;
+  color: var(--green-700);
+  font-weight: 600;
+}
+
 .policy-content .placeholder-note {
   background: var(--green-50);
   border: 1px dashed var(--green-600);
