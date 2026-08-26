@@ -142,6 +142,8 @@ function doPost(e) {
       case 'removeAdmin':
         var removeSession = requireSession_(body.token);
         return jsonOutput(removeAdmin(body.email, removeSession.email));
+      case 'submitContactInquiry':
+        return jsonOutput(submitContactInquiry(body));
       default:
         return jsonOutput({ ok: false, error: 'Unknown or missing action.' });
     }
@@ -755,6 +757,54 @@ function sendStatusUpdateEmail_(email, info) {
     'Chez Rafael'
   ].filter(function (l) { return l !== ''; }).join('\n');
   MailApp.sendEmail({ to: email, subject: subject, body: body });
+}
+
+// ── Contact Us inquiries ────────────────────────────────────────────────────
+
+function submitContactInquiry(body) {
+  var name = String((body && body.name) || '').trim();
+  var email = String((body && body.email) || '').trim();
+  var phone = String((body && body.phone) || '').trim();
+  var message = String((body && body.message) || '').trim();
+
+  if (!name) return { ok: false, error: 'Please enter your name.' };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Enter a valid email address.' };
+  if (!message) return { ok: false, error: 'Please enter a message.' };
+
+  var recipients = getActiveAdminEmails_();
+  if (!recipients.length) recipients = ADMIN_EMAILS;
+
+  var subject = 'DLSL Chez Rafael — Contact Us inquiry from ' + name;
+  var bodyText = [
+    'A new Contact Us inquiry was submitted on the Chez Rafael booking portal.',
+    '',
+    'Name: ' + name,
+    'Email: ' + email,
+    phone ? ('Phone: ' + phone) : '',
+    '',
+    'Message:',
+    message
+  ].filter(function (l) { return l !== ''; }).join('\n');
+
+  MailApp.sendEmail({ to: recipients.join(','), replyTo: email, subject: subject, body: bodyText });
+
+  MailApp.sendEmail({
+    to: email,
+    subject: 'We received your message — DLSL Chez Rafael',
+    body: [
+      'Dear ' + name + ',',
+      '',
+      'Thank you for reaching out to DLSL Chez Rafael. We have received your message and will get back to you as soon as possible.',
+      '',
+      'Your message:',
+      message,
+      '',
+      'Sincerely,',
+      'Chez Rafael'
+    ].join('\n')
+  });
+
+  return { ok: true };
 }
 
 // ── Admin auth: email OTP + session tokens ──────────────────────────────────

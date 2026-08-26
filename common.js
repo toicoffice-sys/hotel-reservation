@@ -63,6 +63,16 @@ async function apiGet(params) {
   return res.json();
 }
 
+async function apiPost(body) {
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(API_TIMEOUT_MS)
+  });
+  return res.json();
+}
+
 // getRooms rarely changes and every Apps Script round trip costs a few
 // seconds minimum — cache it for the tab's session so hopping between
 // index/rooms/gallery doesn't re-pay that cost on every page.
@@ -185,4 +195,57 @@ function initNavToggle() {
   });
 }
 
+// ── Contact Us modal (shared header on index/rooms/gallery/policy pages) ──
+
+function openContactModal() {
+  const modal = document.getElementById('contactModal');
+  if (!modal) return;
+  document.getElementById('contactAlert').innerHTML = '';
+  modal.classList.add('open');
+}
+
+function closeContactModal() {
+  const modal = document.getElementById('contactModal');
+  if (modal) modal.classList.remove('open');
+}
+
+function initContactModal() {
+  const modal = document.getElementById('contactModal');
+  const form = document.getElementById('contactForm');
+  if (!modal || !form) return;
+
+  document.getElementById('contactModalClose').addEventListener('click', closeContactModal);
+  modal.addEventListener('click', e => { if (e.target.id === 'contactModal') closeContactModal(); });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const alertEl = document.getElementById('contactAlert');
+    const submitBtn = document.getElementById('contactSubmitBtn');
+    const payload = {
+      action: 'submitContactInquiry',
+      name: document.getElementById('contactName').value.trim(),
+      email: document.getElementById('contactEmail').value.trim(),
+      phone: document.getElementById('contactPhone').value.trim(),
+      message: document.getElementById('contactMessage').value.trim()
+    };
+
+    submitBtn.disabled = true;
+    alertEl.innerHTML = '';
+    try {
+      const result = await apiPost(payload);
+      if (result.ok) {
+        alertEl.innerHTML = '<div class="alert alert-success">Thanks — your message has been sent. We\'ll get back to you soon.</div>';
+        form.reset();
+      } else {
+        alertEl.innerHTML = `<div class="alert alert-error">${result.error || 'Something went wrong. Please try again.'}</div>`;
+      }
+    } catch (err) {
+      alertEl.innerHTML = '<div class="alert alert-error">Network error — please try again.</div>';
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', initNavToggle);
+document.addEventListener('DOMContentLoaded', initContactModal);

@@ -68,16 +68,6 @@ async function init() {
   }
 }
 
-async function apiPost(body) {
-  const res = await fetch(SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(API_TIMEOUT_MS)
-  });
-  return res.json();
-}
-
 function getRoom(roomType) {
   return rooms.find(r => r.roomType === roomType) || null;
 }

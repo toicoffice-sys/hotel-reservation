@@ -35,6 +35,7 @@
       </div>
     </nav>
     <div class="header-actions">
+      <a href="#" onclick="openContactModal(); return false;">Contact Us</a>
       <a href="admin.html" onclick="navigateTop('admin.html', '?page=admin'); return false;">Admin Login</a>
       <a href="index.html?book=1" class="btn-book" onclick="navigateTop('index.html?book=1', '?book=1'); return false;">Book Now</a>
     </div>
@@ -79,6 +80,38 @@
     </div>
   </div>
 </footer>
+
+<div class="modal-backdrop" id="contactModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Contact Us</h3>
+      <button class="modal-close" id="contactModalClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-top:0; color: var(--muted);">Have a question about your stay? Send us a message and we'll reply by email.</p>
+      <div id="contactAlert"></div>
+      <form id="contactForm" autocomplete="off">
+        <div class="field" style="margin-bottom:14px;">
+          <label for="contactName">Full Name</label>
+          <input type="text" id="contactName" name="contactName" required />
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label for="contactEmail">Email</label>
+          <input type="email" id="contactEmail" name="contactEmail" required />
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label for="contactPhone">Phone (optional)</label>
+          <input type="tel" id="contactPhone" name="contactPhone" />
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label for="contactMessage">Message</label>
+          <textarea id="contactMessage" name="contactMessage" rows="4" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" id="contactSubmitBtn">Send Message</button>
+      </form>
+    </div>
+  </div>
+</div>
 
 <script src="common.js"></script>
 <script src="gallery.js"></script>
