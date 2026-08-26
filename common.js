@@ -115,7 +115,7 @@ function renderRoomCards(gridEl, rooms, onBook) {
         <div class="rate">${formatCurrency(room.rate)} <span>/ ${HOURLY_ROOM_TYPES.includes(room.roomType) ? 'hour' : 'night'}</span></div>
         <div class="meta">Includes ${room.includedGuests} guests &middot; Max ${room.maxGuests} guests</div>
         <div class="meta">${room.inventory} unit${room.inventory > 1 ? 's' : ''} available</div>
-        <div class="meta">${formatCurrency(EXTRA_GUEST_FEE)} / guest beyond included</div>
+        ${HOURLY_ROOM_TYPES.includes(room.roomType) ? '' : `<div class="meta">${formatCurrency(EXTRA_GUEST_FEE)} / guest beyond included</div>`}
         ${ROOM_AMENITIES[room.roomType] ? `
         <ul class="amenities">
           ${ROOM_AMENITIES[room.roomType].map(item => `<li>${item}</li>`).join('')}
