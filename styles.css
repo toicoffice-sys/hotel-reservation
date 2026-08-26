@@ -244,9 +244,9 @@ a { color: inherit; }
   position: relative;
   background-image:
     linear-gradient(to top, rgba(6, 51, 31, 0.88), rgba(6, 51, 31, 0.35) 55%, rgba(6, 51, 31, 0.55)),
-    url('images/gallery/lobby-lounge.jpg');
+    url('images/gallery/chez-rafael-exterior.jpg');
   background-size: cover;
-  background-position: left center;
+  background-position: center center;
   min-height: 56vh;
   display: flex;
   align-items: center;
@@ -1168,13 +1168,6 @@ tbody tr:hover { background: var(--green-50); }
    own centered grid column, .site-nav only gets a 1fr share of the header
    instead of the whole middle — needs more room before it's cramped. */
 @media (max-width: 1024px) {
-  /* Below ~1024px the viewport is taller relative to its width than the
-     hero photo (1400x541), so `cover` has to crop most of its width away.
-     Anchoring on "left center" (the desktop crop) then shows mostly the
-     foreground plant/doorway on the far left instead of the lounge seating
-     — shift the visible slice right onto the couches/glass wall instead. */
-  .hero { background-position: 40% center; }
-
   .nav-toggle { display: flex; }
 
   .site-nav {
