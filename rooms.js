@@ -26,7 +26,7 @@ function renderActiveCategory() {
   const grid = document.getElementById('roomGrid');
   const tab = ROOM_CATEGORY_TABS.find(t => t.id === activeCategory) || ROOM_CATEGORY_TABS[0];
   const filtered = rooms.filter(r => tab.roomTypes.includes(r.roomType));
-  grid.classList.toggle('room-grid--2col', tab.id === 'guest-rooms');
+  grid.classList.add('room-grid--2col');
   renderRoomCards(grid, filtered, goBook);
 }
 

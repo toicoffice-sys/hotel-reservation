@@ -303,14 +303,10 @@ a { color: inherit; }
   gap: 18px;
 }
 
-/* Desktop: cap at 3 columns per row by default; the Guest Rooms tab
-   (rooms.js toggles .room-grid--2col) caps at 2 instead. Same breakpoint
-   as "desktop" nav. */
+/* Desktop: cap at 2 columns per row on every Rooms & Venues tab (rooms.js
+   always applies .room-grid--2col) so cards/thumbnails are the same size
+   across tabs. Same breakpoint as "desktop" nav. */
 @media (min-width: 1025px) {
-  .room-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
   .room-grid.room-grid--2col {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -380,8 +376,8 @@ a { color: inherit; }
   object-position: center 38%;
 }
 
-/* Guest Rooms tab is capped at 2 columns, which makes each card (and its
-   16:9 thumb) much wider than the other tabs — shrink the thumb's aspect
+/* Both Rooms & Venues tabs are capped at 2 columns, which makes each card
+   (and its 16:9 thumb) wider than a 3-up layout — shrink the thumb's aspect
    ratio so the photo doesn't dominate the card. */
 .room-grid--2col .room-card .thumb {
   aspect-ratio: 21 / 9;
