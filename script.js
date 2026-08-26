@@ -2,8 +2,6 @@
 // Shared room data/API helpers (SCRIPT_URL, ROOM_IMAGES, fetchRooms, etc.) live
 // in common.js, loaded before this file.
 
-const LATE_CHECKOUT_GRACE_MINUTES = 12 * 60 + 15;
-const LATE_CHECKOUT_FEE_PER_HOUR = 200;
 const MATTRESS_FEE_PER_UNIT = 500;
 const DLSL_EMAIL_DOMAIN = '@dlsl.edu.ph';
 const MAX_PROOF_OF_PAYMENT_BYTES = 5 * 1024 * 1024;
@@ -272,21 +270,13 @@ function computePricing(room, checkIn, checkInTime, checkOut, checkOutTime, gues
   const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
   const nights = Math.max(1, Math.round((endDay - startDay) / 86400000));
 
-  let lateCheckoutFee = 0;
-  const [coH, coM] = (checkOutTime || '12:00').split(':').map(Number);
-  const coMinutes = coH * 60 + coM;
-  if (coMinutes > LATE_CHECKOUT_GRACE_MINUTES) {
-    const extraHours = Math.ceil((coMinutes - LATE_CHECKOUT_GRACE_MINUTES) / 60);
-    lateCheckoutFee = extraHours * LATE_CHECKOUT_FEE_PER_HOUR;
-  }
-
   const mattressFee = Math.max(0, Number(mattressQty) || 0) * MATTRESS_FEE_PER_UNIT;
   const extraGuests = Math.max(0, (Number(guests) || 0) - room.includedGuests);
   const extraGuestFee = extraGuests * EXTRA_GUEST_FEE;
   const roomCost = room.rate * nights;
-  const totalExpenses = roomCost + lateCheckoutFee + mattressFee + extraGuestFee;
+  const totalExpenses = roomCost + mattressFee + extraGuestFee;
 
-  return { nights, roomRate: room.rate, roomCost, lateCheckoutFee, mattressFee, extraGuestFee, totalExpenses };
+  return { nights, roomRate: room.rate, roomCost, mattressFee, extraGuestFee, totalExpenses };
 }
 
 function updateSummary() {
@@ -303,7 +293,6 @@ function updateSummary() {
   document.getElementById('sumRoomRate').textContent = room ? formatCurrency(room.rate) : '—';
   document.getElementById('sumNights').textContent = pricing ? pricing.nights : '—';
   document.getElementById('sumRoomCost').textContent = pricing ? formatCurrency(pricing.roomCost) : '—';
-  document.getElementById('sumLateFee').textContent = pricing ? formatCurrency(pricing.lateCheckoutFee) : '—';
   document.getElementById('sumMattressFee').textContent = pricing ? formatCurrency(pricing.mattressFee) : '—';
   document.getElementById('sumGuestFee').textContent = pricing ? formatCurrency(pricing.extraGuestFee) : '—';
   document.getElementById('sumTotal').textContent = pricing ? formatCurrency(pricing.totalExpenses) : 'PHP 0';

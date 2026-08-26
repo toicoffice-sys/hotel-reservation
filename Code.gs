@@ -44,9 +44,6 @@ var DEFAULT_ROOMS = [
   ['Chez Rafael Function Hall', 1, 500, 40, 40]
 ];
 
-var LATE_CHECKOUT_GRACE_HOUR = 12;
-var LATE_CHECKOUT_GRACE_MINUTE = 15;
-var LATE_CHECKOUT_FEE_PER_HOUR = 200;
 var MATTRESS_FEE_PER_UNIT = 500;
 var EXTRA_GUEST_FEE = 400;
 var STANDARD_CHECKIN_TIME = '14:00:00';
@@ -623,29 +620,19 @@ function getProofOfPaymentFolder_() {
 function computePricing_(room, start, end, checkOutTime, guests, mattressQty) {
   var nights = Math.max(1, Math.round((stripTime_(end) - stripTime_(start)) / 86400000));
 
-  var lateCheckoutFee = 0;
-  var coTime = normalizeTimeValue(checkOutTime);
-  var parts = coTime.split(':').map(Number);
-  var coMinutes = parts[0] * 60 + parts[1];
-  var graceMinutes = LATE_CHECKOUT_GRACE_HOUR * 60 + LATE_CHECKOUT_GRACE_MINUTE;
-  if (coMinutes > graceMinutes) {
-    var extraHours = Math.ceil((coMinutes - graceMinutes) / 60);
-    lateCheckoutFee = extraHours * LATE_CHECKOUT_FEE_PER_HOUR;
-  }
-
   var mattressFee = Math.max(0, mattressQty) * MATTRESS_FEE_PER_UNIT;
 
   var extraGuests = Math.max(0, guests - room.includedGuests);
   var extraGuestFee = extraGuests * EXTRA_GUEST_FEE;
 
   var roomCost = room.rate * nights;
-  var totalExpenses = roomCost + lateCheckoutFee + mattressFee + extraGuestFee;
+  var totalExpenses = roomCost + mattressFee + extraGuestFee;
 
   return {
     nights: nights,
     roomRate: room.rate,
     roomCost: roomCost,
-    lateCheckoutFee: lateCheckoutFee,
+    lateCheckoutFee: 0,
     mattressFee: mattressFee,
     extraGuestFee: extraGuestFee,
     totalExpenses: totalExpenses
