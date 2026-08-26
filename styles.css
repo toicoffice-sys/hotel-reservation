@@ -303,13 +303,47 @@ a { color: inherit; }
   gap: 18px;
 }
 
-/* Desktop: cap at 5 columns so all current room types (Single/Twin/Family/
-   Triple/Event Place) sit on one row instead of auto-fit's narrower 4-per-
-   row max wrapping the 5th card alone. Same breakpoint as "desktop" nav. */
+/* Desktop: cap at 3 columns per row by default; the Guest Rooms tab
+   (rooms.js toggles .room-grid--2col) caps at 2 instead. Same breakpoint
+   as "desktop" nav. */
 @media (min-width: 1025px) {
   .room-grid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
+
+  .room-grid.room-grid--2col {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ── Room/venue category tabs (rooms.html) ─────────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.tab-btn {
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--green-700);
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 9px 18px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.tab-btn:hover { background: var(--green-50); }
+
+.tab-btn.active {
+  color: var(--white);
+  background: var(--green-700);
+  border-color: var(--green-700);
 }
 
 .room-card {
@@ -346,6 +380,13 @@ a { color: inherit; }
   object-position: center 38%;
 }
 
+/* Guest Rooms tab is capped at 2 columns, which makes each card (and its
+   16:9 thumb) much wider than the other tabs — shrink the thumb's aspect
+   ratio so the photo doesn't dominate the card. */
+.room-grid--2col .room-card .thumb {
+  aspect-ratio: 21 / 9;
+}
+
 .room-card .body {
   padding: 16px;
   display: flex;
@@ -375,6 +416,28 @@ a { color: inherit; }
 .room-card .meta {
   font-size: 12.5px;
   color: var(--muted);
+}
+
+.room-card .amenities {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px 10px;
+}
+
+.room-card .amenities li {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.room-card .amenities li::before {
+  content: '✓ ';
+  color: var(--green-600);
+  font-weight: 700;
 }
 
 .room-card .actions {
@@ -792,6 +855,7 @@ a { color: inherit; }
 /* ── Footer ─────────────────────────────────────────────────────────── */
 
 .site-footer {
+  margin-top: 0.5rem;
   padding: 28px 0 40px;
   color: var(--muted);
   font-size: 12.5px;
@@ -1108,6 +1172,13 @@ tbody tr:hover { background: var(--green-50); }
    own centered grid column, .site-nav only gets a 1fr share of the header
    instead of the whole middle — needs more room before it's cramped. */
 @media (max-width: 1024px) {
+  /* Below ~1024px the viewport is taller relative to its width than the
+     hero photo (1400x541), so `cover` has to crop most of its width away.
+     Anchoring on "left center" (the desktop crop) then shows mostly the
+     foreground plant/doorway on the far left instead of the lounge seating
+     — shift the visible slice right onto the couches/glass wall instead. */
+  .hero { background-position: 40% center; }
+
   .nav-toggle { display: flex; }
 
   .site-nav {

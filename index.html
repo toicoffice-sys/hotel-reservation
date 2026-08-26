@@ -21,7 +21,7 @@
       <span class="bar"></span><span class="bar"></span><span class="bar"></span>
     </button>
     <nav class="site-nav" id="siteNav">
-      <a href="#top">Home</a>
+      <a href="index.html" onclick="navigateTop('index.html', '?'); return false;">Home</a>
       <a href="rooms.html" onclick="navigateTop('rooms.html', '?page=rooms'); return false;">Rooms</a>
       <a href="gallery.html" onclick="navigateTop('gallery.html', '?page=gallery'); return false;">Gallery</a>
       <div class="nav-dropdown">
@@ -71,7 +71,6 @@
           <input type="number" id="guests" name="guests" min="1" required />
           <span class="hint" id="guestsHint"></span>
         </div>
-
         <div class="field field-full">
           <label>Room Availability</label>
           <div class="mini-calendar" id="miniCalendar">
@@ -118,7 +117,7 @@
         <div class="field">
           <label for="mattressQty">Extra Mattress (qty)</label>
           <input type="number" id="mattressQty" name="mattressQty" min="0" value="0" />
-          <span class="hint">PHP 200 per mattress.</span>
+          <span class="hint">PHP 500 per mattress.</span>
         </div>
         <div class="field">
           <label>&nbsp;</label>

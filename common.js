@@ -6,19 +6,42 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbysMtfkO4-tuzx-dK_Cv
 // Fallback room data, used only if the live /getRooms call fails (e.g. before
 // SCRIPT_URL is configured). The deployed Rooms sheet is the source of truth.
 const FALLBACK_ROOMS = [
-  { roomType: 'Standard Single', inventory: 4, rate: 2500, includedGuests: 2, maxGuests: 4 },
-  { roomType: 'Standard Twin', inventory: 2, rate: 3000, includedGuests: 2, maxGuests: 4 },
-  { roomType: 'Standard Family', inventory: 1, rate: 4000, includedGuests: 2, maxGuests: 4 },
-  { roomType: 'Standard Triple', inventory: 1, rate: 6000, includedGuests: 4, maxGuests: 8 },
-  { roomType: 'Event Place', inventory: 1, rate: 15000, includedGuests: 80, maxGuests: 80 }
+  { roomType: 'Standard Single', inventory: 4, rate: 2000, includedGuests: 2, maxGuests: 4 },
+  { roomType: 'Standard Twin', inventory: 2, rate: 2300, includedGuests: 2, maxGuests: 4 },
+  { roomType: 'Standard Family', inventory: 1, rate: 2800, includedGuests: 2, maxGuests: 4 },
+  { roomType: 'Standard Triple', inventory: 1, rate: 3000, includedGuests: 4, maxGuests: 8 },
+  { roomType: 'Cafe Le Barako', inventory: 1, rate: 1000, includedGuests: 80, maxGuests: 80 },
+  { roomType: 'Chez Rafael Function Hall', inventory: 1, rate: 500, includedGuests: 40, maxGuests: 40 }
 ];
+
+// Room types billed per hour instead of per night (venues, not guest rooms).
+const HOURLY_ROOM_TYPES = ['Cafe Le Barako', 'Chez Rafael Function Hall'];
+
+// Category tabs shown on rooms.html — splits guest rooms from bookable
+// facilities/venues.
+const ROOM_CATEGORY_TABS = [
+  { id: 'guest-rooms', label: 'Chez Rafael Guest Rooms', roomTypes: ['Standard Single', 'Standard Twin', 'Standard Family', 'Standard Triple'] },
+  { id: 'facilities', label: 'Chez Rafael Facilities', roomTypes: ['Cafe Le Barako', 'Chez Rafael Function Hall'] }
+];
+
+// Static per-room-type amenity list (bed configuration first, then shared
+// in-room amenities) — display-only, not sourced from the Rooms sheet.
+const ROOM_AMENITIES = {
+  'Standard Single': ['1 Single Bed', 'Wifi', 'Smart TV', 'Telephone', 'Personal Fridge', 'Electric Kettle', 'Air Conditioner', 'Hot Shower', 'Essential Toiletries', 'Fresh Towels'],
+  'Standard Twin': ['2 Single Beds', 'Wifi', 'Smart TV', 'Telephone', 'Personal Fridge', 'Electric Kettle', 'Air Conditioner', 'Hot Shower', 'Essential Toiletries', 'Fresh Towels'],
+  'Standard Family': ['1 Queen Size Bed', '1 Single Bed', 'Wifi', 'Smart TV', 'Telephone', 'Personal Fridge', 'Electric Kettle', 'Air Conditioner', 'Hot Shower', 'Essential Toiletries', 'Fresh Towels'],
+  'Standard Triple': ['3 Single Beds', 'Wifi', 'Smart TV', 'Telephone', 'Personal Fridge', 'Electric Kettle', 'Air Conditioner', 'Hot Shower', 'Essential Toiletries', 'Fresh Towels'],
+  'Cafe Le Barako': ['Tables and Chairs', 'Podium (via GSD)', 'Platform (via GSD)', '75" TV (via RESERVEASE)', 'Sound System with 2 Mics (via GSD)'],
+  'Chez Rafael Function Hall': ['Tables', 'Tiffany Chairs', 'Podium', 'TV']
+};
 
 const ROOM_ICONS = {
   'Standard Single': '🛏️',
   'Standard Twin': '🛏️',
   'Standard Family': '👨‍👩‍👧‍👦',
   'Standard Triple': '🛏️',
-  'Event Place': '🎪'
+  'Cafe Le Barako': '🎪',
+  'Chez Rafael Function Hall': '🏛️'
 };
 
 const ROOM_IMAGES = {
@@ -26,7 +49,8 @@ const ROOM_IMAGES = {
   'Standard Twin': 'images/rooms/standard-twin.jpg',
   'Standard Family': 'images/rooms/standard-family.jpg',
   'Standard Triple': 'images/rooms/standard-triple.jpg',
-  'Event Place': 'images/rooms/event-place.jpg'
+  'Cafe Le Barako': 'images/rooms/cafe-le-barako.jpg',
+  'Chez Rafael Function Hall': 'images/rooms/function-hall.jpg'
 };
 
 const EXTRA_GUEST_FEE = 400;
@@ -88,10 +112,14 @@ function renderRoomCards(gridEl, rooms, onBook) {
         : (ROOM_ICONS[room.roomType] || '🏠')}</div>
       <div class="body">
         <h4>${room.roomType}</h4>
-        <div class="rate">${formatCurrency(room.rate)} <span>/ ${room.roomType === 'Event Place' ? 'day' : 'night'}</span></div>
+        <div class="rate">${formatCurrency(room.rate)} <span>/ ${HOURLY_ROOM_TYPES.includes(room.roomType) ? 'hour' : 'night'}</span></div>
         <div class="meta">Includes ${room.includedGuests} guests &middot; Max ${room.maxGuests} guests</div>
         <div class="meta">${room.inventory} unit${room.inventory > 1 ? 's' : ''} available</div>
         <div class="meta">${formatCurrency(EXTRA_GUEST_FEE)} / guest beyond included</div>
+        ${ROOM_AMENITIES[room.roomType] ? `
+        <ul class="amenities">
+          ${ROOM_AMENITIES[room.roomType].map(item => `<li>${item}</li>`).join('')}
+        </ul>` : ''}
         <div class="actions">
           <button class="btn btn-primary" data-select="${room.roomType}">Book Now</button>
         </div>

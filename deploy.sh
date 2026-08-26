@@ -80,6 +80,7 @@ sed \
   -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
   -e "s|<script src=\"common.js\"></script>|<?!= include('CommonScript'); ?>|" \
   -e "s|<script src=\"script.js\"></script>|<?!= include('IndexScript'); ?>|" \
+  -e 's|href="index.html"|href="?"|' \
   -e 's|href="admin.html"|href="?page=admin"|' \
   -e 's|href="rooms.html"|href="?page=rooms"|' \
   -e 's|href="gallery.html"|href="?page=gallery"|' \

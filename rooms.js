@@ -2,6 +2,7 @@
 // Shared room data/API helpers live in common.js, loaded before this file.
 
 let rooms = [];
+let activeCategory = ROOM_CATEGORY_TABS[0].id;
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -10,7 +11,23 @@ async function init() {
   renderRoomCardsLoading(grid);
 
   rooms = await fetchRooms();
-  renderRoomCards(grid, rooms, goBook);
+  renderActiveCategory();
+
+  document.querySelectorAll('#roomCategoryTabs .tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeCategory = btn.getAttribute('data-category');
+      document.querySelectorAll('#roomCategoryTabs .tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+      renderActiveCategory();
+    });
+  });
+}
+
+function renderActiveCategory() {
+  const grid = document.getElementById('roomGrid');
+  const tab = ROOM_CATEGORY_TABS.find(t => t.id === activeCategory) || ROOM_CATEGORY_TABS[0];
+  const filtered = rooms.filter(r => tab.roomTypes.includes(r.roomType));
+  grid.classList.toggle('room-grid--2col', tab.id === 'guest-rooms');
+  renderRoomCards(grid, filtered, goBook);
 }
 
 // Room selection lives here, but the booking form lives on index.html —

@@ -36,17 +36,18 @@ var ROOM_HEADERS = ['Room Type', 'Inventory', 'Rate', 'Included Guests', 'Max Gu
 // inherit from, unlike the other three which kept their original rate/
 // capacity through the rename) — adjust directly in the Rooms sheet.
 var DEFAULT_ROOMS = [
-  ['Standard Single', 4, 2500, 2, 4],
-  ['Standard Twin', 2, 3000, 2, 4],
-  ['Standard Family', 1, 4000, 2, 4],
-  ['Standard Triple', 1, 6000, 4, 8],
-  ['Event Place', 1, 15000, 80, 80]
+  ['Standard Single', 4, 2000, 2, 4],
+  ['Standard Twin', 2, 2300, 2, 4],
+  ['Standard Family', 1, 2800, 2, 4],
+  ['Standard Triple', 1, 3000, 4, 8],
+  ['Cafe Le Barako', 1, 1000, 80, 80],
+  ['Chez Rafael Function Hall', 1, 500, 40, 40]
 ];
 
 var LATE_CHECKOUT_GRACE_HOUR = 12;
 var LATE_CHECKOUT_GRACE_MINUTE = 15;
 var LATE_CHECKOUT_FEE_PER_HOUR = 200;
-var MATTRESS_FEE_PER_UNIT = 200;
+var MATTRESS_FEE_PER_UNIT = 500;
 var EXTRA_GUEST_FEE = 400;
 var STANDARD_CHECKIN_TIME = '14:00:00';
 
@@ -733,7 +734,7 @@ function sendReservationEmail(email, info) {
   var body = [
     'Dear ' + info.fullName + ',',
     '',
-    'We have received your reservation request at DLSL Chez Rafael.',
+    'Thank you for your interest in booking Chez Rafael. We have received your reservation request with the following details:',
     '',
     'Reservation ID: ' + info.reservationId,
     'Room Type: ' + info.roomType,
@@ -744,7 +745,8 @@ function sendReservationEmail(email, info) {
     '',
     'You will receive another email once your reservation has been reviewed.',
     '',
-    'DLSL Guest House Administration'
+    'Sincerely,',
+    'Chez Rafael'
   ].join('\n');
   MailApp.sendEmail({ to: email, subject: subject, body: body });
 }
@@ -762,7 +764,8 @@ function sendStatusUpdateEmail_(email, info) {
     'Status: ' + info.status,
     info.adminRemarks ? ('Remarks: ' + info.adminRemarks) : '',
     '',
-    'DLSL Guest House Administration'
+    'Sincerely,',
+    'Chez Rafael'
   ].filter(function (l) { return l !== ''; }).join('\n');
   MailApp.sendEmail({ to: email, subject: subject, body: body });
 }
