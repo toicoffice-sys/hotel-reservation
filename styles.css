@@ -539,7 +539,20 @@ a { color: inherit; }
   gap: 7px 14px;
 }
 
+/* Mobile: keep short fields (room type / guests, check-in/out date + time)
+   paired two-up so the form stays compact; wide text fields already span
+   via .field-full. Below 400px everything stacks. */
 @media (max-width: 640px) {
+  .form-card { padding: 14px 12px; }
+  .form-grid { gap: 8px 10px; }
+  /* 16px inputs stop iOS Safari from zooming in on focus */
+  .field input,
+  .field select,
+  .field textarea { font-size: 16px; padding: 8px 10px; }
+  .field .hint { font-size: 11px; }
+}
+
+@media (max-width: 400px) {
   .form-grid { grid-template-columns: 1fr; }
 }
 
@@ -1238,6 +1251,15 @@ tbody tr:hover { background: var(--green-50); }
 @media (max-width: 640px) {
   .detail-grid { grid-template-columns: 1fr; }
   .hero { min-height: 40vh; }
+
+  /* Booking form on small screens */
+  #bookingSection .container { padding: 0 14px; }
+  #bookingSection .section-title { flex-wrap: wrap; gap: 8px; }
+  #bookingSection .section-title #changeRoomBtn { margin-left: auto; }
+  .mini-calendar { padding: 10px 10px 12px; }
+  .cal-day { padding: 8px 0; font-size: 13px; }
+  .mini-calendar-grid { min-height: 36px; }
+  .summary { padding: 12px 14px; }
 }
 
 @media (max-width: 600px) {
