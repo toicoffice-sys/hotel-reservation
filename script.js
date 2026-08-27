@@ -328,6 +328,8 @@ function readForm() {
     email: document.getElementById('email').value,
     phone: document.getElementById('phone').value,
     affiliation: document.getElementById('affiliation').value,
+    guestsName: document.getElementById('guestsName').value,
+    guestsCompany: document.getElementById('guestsCompany').value,
     specialRequests: document.getElementById('specialRequests').value
   };
 }

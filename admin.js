@@ -335,6 +335,8 @@ function openReviewModal(reservationId) {
     <div class="k">Email</div><div class="v">${r['Email']}</div>
     <div class="k">Phone</div><div class="v">${r['Phone']}</div>
     <div class="k">Affiliation</div><div class="v">${r['Affiliation'] || '—'}</div>
+    <div class="k">Guests Name</div><div class="v">${r['Guests Name'] || '—'}</div>
+    <div class="k">Guests Company / Address</div><div class="v">${r['Guests Company / Address'] || '—'}</div>
     <div class="k">Room Type</div><div class="v">${r['Room Type']}</div>
     <div class="k">Guests</div><div class="v">${r['Guests']}</div>
     <div class="k">Check-In</div><div class="v">${r['Check-In']} ${r['Check-In Time'] || ''}</div>

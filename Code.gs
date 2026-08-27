@@ -21,7 +21,8 @@ var RESERVATION_HEADERS = [
   'Check-In', 'Check-In Time', 'Check-Out', 'Check-Out Time', 'Guests',
   'Room Type', 'Room Rate', 'Nights', 'Late Checkout Fee', 'Mattress Fee',
   'Total Expenses', 'Special Requests', 'Status', 'Admin Remarks',
-  'Reviewed By', 'Reviewed At', 'Proof of Payment'
+  'Reviewed By', 'Reviewed At', 'Proof of Payment',
+  'Guests Name', 'Guests Company / Address'
 ];
 
 // Guests booking with a non-DLSL email must attach proof of payment.
@@ -554,7 +555,9 @@ function submitReservation(body) {
     '',
     '',
     '',
-    proofOfPaymentUrl
+    proofOfPaymentUrl,
+    body.guestsName || '',
+    body.guestsCompany || ''
   ]);
 
   sendReservationEmail(body.email, {
