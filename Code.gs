@@ -33,10 +33,10 @@ var ROOM_HEADERS = ['Room Type', 'Inventory', 'Rate', 'Included Guests', 'Max Gu
 // inherit from, unlike the other three which kept their original rate/
 // capacity through the rename) — adjust directly in the Rooms sheet.
 var DEFAULT_ROOMS = [
-  ['Standard Single', 4, 2000, 2, 4],
+  ['Standard Single', 4, 2000, 1, 2],
   ['Standard Twin', 2, 2300, 2, 4],
-  ['Standard Family', 1, 2800, 2, 4],
-  ['Standard Triple', 1, 3000, 4, 8],
+  ['Standard Family', 1, 2800, 3, 4],
+  ['Standard Triple', 1, 3000, 3, 6],
   ['Cafe Le Barako', 1, 1000, 80, 80],
   ['Chez Rafael Function Hall', 1, 500, 40, 40]
 ];
