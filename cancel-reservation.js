@@ -34,6 +34,12 @@ async function init() {
     state.innerHTML = `<div class="alert alert-info">This reservation is already ${result.status.toLowerCase()} — there's nothing more to cancel.</div>`;
     return;
   }
+  if (!result.canSelfCancel) {
+    state.innerHTML =
+      '<div class="alert alert-info">This reservation is within a few days of check-in and can no longer be ' +
+      'cancelled online. Please contact our front desk directly to cancel.</div>';
+    return;
+  }
 
   renderConfirm(state, result, reservationId, token);
 }

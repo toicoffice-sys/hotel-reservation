@@ -44,6 +44,11 @@ var DEFAULT_ROOMS = [
 var MATTRESS_FEE_PER_UNIT = 500;
 var STANDARD_CHECKIN_TIME = '14:00:00';
 
+// Guests may self-cancel via the approval email's link up to this many days
+// before check-in; closer than that, only an admin can decline it (the
+// front desk needs to know in time to release/re-prep the room/venue).
+var GUEST_CANCELLATION_WINDOW_DAYS = 3;
+
 // Billed by actual Check-In → Check-Out duration rather than calendar
 // nights — keep in sync with HOURLY_ROOM_TYPES in common.js.
 var HOURLY_ROOM_TYPES = ['Cafe Le Barako', 'Chez Rafael Function Hall'];
@@ -785,6 +790,16 @@ function verifyReservationToken_(reservationId, token) {
 // Limited, token-gated view of a reservation for the guest-facing
 // upload-proof/cancel-reservation pages — deliberately returns far less
 // than the admin's getReservations() (no phone, remarks, etc.).
+// Whether a guest is still inside the self-cancellation window (>= 3 full
+// days before check-in). Shared by getGuestReservation (so the page can
+// show the right UI up front) and guestCancelReservation (the authoritative
+// check at actual cancellation time).
+function isWithinGuestCancellationWindow_(row, idx) {
+  var checkInMoment = parseSheetDateTime(row[idx['Check-In']], row[idx['Check-In Time']]);
+  var daysUntilCheckIn = (checkInMoment.getTime() - Date.now()) / 86400000;
+  return daysUntilCheckIn >= GUEST_CANCELLATION_WINDOW_DAYS;
+}
+
 function getGuestReservation(reservationId, token) {
   if (!verifyReservationToken_(reservationId, token)) {
     return { ok: false, error: 'This link is invalid or has expired.' };
@@ -804,7 +819,8 @@ function getGuestReservation(reservationId, token) {
     checkOut: row[idx['Check-Out']],
     totalExpenses: row[idx['Total Expenses']],
     status: row[idx['Status']],
-    hasProofOfPayment: !!row[idx['Proof of Payment']]
+    hasProofOfPayment: !!row[idx['Proof of Payment']],
+    canSelfCancel: isWithinGuestCancellationWindow_(row, idx)
   };
 }
 
@@ -851,6 +867,15 @@ function guestCancelReservation(reservationId, token) {
   var status = sheet.getRange(rowNum, idx['Status'] + 1).getValue();
   if (status === 'Rejected' || status === 'Declined') {
     return { ok: false, error: 'This reservation is already ' + status.toLowerCase() + '.' };
+  }
+
+  var row = sheet.getRange(rowNum, 1, 1, RESERVATION_HEADERS.length).getValues()[0];
+  if (!isWithinGuestCancellationWindow_(row, idx)) {
+    return {
+      ok: false,
+      error: 'This reservation is within ' + GUEST_CANCELLATION_WINDOW_DAYS + ' days of check-in and can no ' +
+        'longer be cancelled online. Please contact the front desk directly.'
+    };
   }
 
   sheet.getRange(rowNum, idx['Status'] + 1).setValue('Declined');
@@ -987,6 +1012,12 @@ function sendStatusUpdateEmail_(email, info) {
 
     lines.push('', 'Upload your proof of payment: ' + uploadUrl);
     lines.push('Need to cancel? Cancel your reservation: ' + cancelUrl);
+    lines.push(
+      '',
+      'Cancellation Policy: You may cancel this reservation yourself using the link above up to ' +
+        GUEST_CANCELLATION_WINDOW_DAYS + ' days before your check-in date. Within ' +
+        GUEST_CANCELLATION_WINDOW_DAYS + ' days of check-in, cancellations must be handled by our admin team directly.'
+    );
 
     htmlActions =
       '<div style="margin:24px 0;">' +
@@ -994,7 +1025,10 @@ function sendStatusUpdateEmail_(email, info) {
           'font-weight:600;padding:12px 22px;border-radius:8px;margin:0 12px 12px 0;">Upload Proof of Payment</a>' +
         '<a href="' + cancelUrl + '" style="display:inline-block;background:#c0392b;color:#ffffff;text-decoration:none;' +
           'font-weight:600;padding:12px 22px;border-radius:8px;margin:0 0 12px 0;">Cancel Reservation</a>' +
-      '</div>';
+      '</div>' +
+      '<p style="font-size:12.5px;color:#5b6660;">Cancellation Policy: You may cancel this reservation yourself using ' +
+        'the button above up to ' + GUEST_CANCELLATION_WINDOW_DAYS + ' days before your check-in date. Within ' +
+        GUEST_CANCELLATION_WINDOW_DAYS + ' days of check-in, cancellations must be handled by our admin team directly.</p>';
   }
 
   lines.push('', 'Sincerely,', 'Chez Rafael');
