@@ -858,10 +858,52 @@ function guestCancelReservation(reservationId, token) {
   sheet.getRange(rowNum, idx['Reviewed By'] + 1).setValue('Guest (self-service)');
   sheet.getRange(rowNum, idx['Reviewed At'] + 1).setValue(new Date());
 
+  var email = sheet.getRange(rowNum, idx['Email'] + 1).getValue();
   var fullName = sheet.getRange(rowNum, idx['Full Name'] + 1).getValue();
   var roomType = sheet.getRange(rowNum, idx['Room Type'] + 1).getValue();
   logAudit_('Guest', 'Reservation cancelled by guest', reservationId + ' (' + fullName + ', ' + roomType + ')');
+  sendCancellationEmails_(email, { reservationId: reservationId, fullName: fullName, roomType: roomType });
   return { ok: true, reservationId: reservationId };
+}
+
+// Notifies both sides once a guest self-cancels via the email link — the
+// guest gets a confirmation, the admins get a heads-up (unlike an admin-side
+// Rejected/Declined, this one wasn't their action).
+function sendCancellationEmails_(guestEmail, info) {
+  if (guestEmail) {
+    MailApp.sendEmail({
+      to: guestEmail,
+      subject: 'DLSL Guest House Reservation Cancelled — ' + info.reservationId,
+      body: [
+        'Dear ' + info.fullName + ',',
+        '',
+        'Your reservation has been cancelled as requested.',
+        '',
+        'Reservation ID: ' + info.reservationId,
+        'Room Type: ' + info.roomType,
+        '',
+        'If this was a mistake, please submit a new reservation request.',
+        '',
+        'Sincerely,',
+        'Chez Rafael'
+      ].join('\n')
+    });
+  }
+
+  var adminEmails = getActiveAdminEmails_();
+  if (adminEmails.length) {
+    MailApp.sendEmail({
+      to: adminEmails.join(','),
+      subject: 'Reservation Cancelled by Guest — ' + info.reservationId,
+      body: [
+        'A guest cancelled their reservation via the link in their approval email.',
+        '',
+        'Reservation ID: ' + info.reservationId,
+        'Guest: ' + info.fullName,
+        'Room Type: ' + info.roomType
+      ].join('\n')
+    });
+  }
 }
 
 // ── Date/time utilities ──────────────────────────────────────────────────────
@@ -944,14 +986,14 @@ function sendStatusUpdateEmail_(email, info) {
     var cancelUrl = baseUrl + '?page=cancel-reservation&res=' + encodeURIComponent(info.reservationId) + '&token=' + token;
 
     lines.push('', 'Upload your proof of payment: ' + uploadUrl);
-    lines.push('No longer interested? Cancel your reservation: ' + cancelUrl);
+    lines.push('Need to cancel? Cancel your reservation: ' + cancelUrl);
 
     htmlActions =
       '<div style="margin:24px 0;">' +
         '<a href="' + uploadUrl + '" style="display:inline-block;background:#0e6b3f;color:#ffffff;text-decoration:none;' +
           'font-weight:600;padding:12px 22px;border-radius:8px;margin:0 12px 12px 0;">Upload Proof of Payment</a>' +
         '<a href="' + cancelUrl + '" style="display:inline-block;background:#c0392b;color:#ffffff;text-decoration:none;' +
-          'font-weight:600;padding:12px 22px;border-radius:8px;margin:0 0 12px 0;">No Longer Interested</a>' +
+          'font-weight:600;padding:12px 22px;border-radius:8px;margin:0 0 12px 0;">Cancel Reservation</a>' +
       '</div>';
   }
 
