@@ -1248,9 +1248,8 @@ tbody tr:hover { background: var(--green-50); }
   .hero { min-height: 40vh; }
 
   /* ── Booking form on small screens ──────────────────────────────────
-     Short fields (check-in/out date + time) stay paired two-up so the form
-     doesn't become an endless single column; .field-full items already
-     span. Only phones narrower than 360px stack everything (rule below). */
+     Every field goes full width — see below for why dates/times can't stay
+     paired. .field-full items already span regardless. */
   #bookingSection .container { padding: 0 14px; }
   #bookingSection .section-title { flex-wrap: wrap; gap: 8px; }
   #bookingSection .section-title #changeRoomBtn { margin-left: auto; }
@@ -1263,10 +1262,17 @@ tbody tr:hover { background: var(--green-50); }
      full width: Extra Mattress's hint is a dynamic sentence (occupancy/
      venue messaging) that wraps to several lines in a half column, and a
      full-width button is a bigger, easier mobile tap target anyway.
-     Keeping this an even-sized set means Check-In/Check-Out Date + Time
-     still line up as pairs on the rows between them. */
+     Check-In/Check-Out Date + Time also go full width: native <input
+     type="date">/type="time"> controls (iOS Safari in particular) render
+     their formatted value at a fixed intrinsic width that ignores the CSS
+     width on a half column, so paired at ~45% each they overlapped/got
+     clipped on real phones — full width gives them room to render properly. */
   .form-grid > .field:nth-child(1),
   .form-grid > .field:nth-child(2),
+  .form-grid > .field:nth-child(3),
+  .form-grid > .field:nth-child(4),
+  .form-grid > .field:nth-child(5),
+  .form-grid > .field:nth-child(6),
   .form-grid > .field:nth-child(7),
   .form-grid > .field:nth-child(8) { grid-column: 1 / -1; }
 
