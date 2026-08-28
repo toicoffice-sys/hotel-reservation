@@ -53,7 +53,6 @@ const ROOM_IMAGES = {
   'Chez Rafael Function Hall': 'images/rooms/function-hall.jpg'
 };
 
-const EXTRA_GUEST_FEE = 400;
 const API_TIMEOUT_MS = 20000;
 
 async function apiGet(params) {
@@ -127,7 +126,6 @@ function renderRoomCards(gridEl, rooms, onBook) {
           ? `Includes ${room.includedGuests} guests${room.maxGuests !== room.includedGuests ? ` &middot; Max ${room.maxGuests} guests` : ''}`
           : `Number of Guest(s) ${room.includedGuests} Pax &middot; Maximum of ${room.maxGuests} pax, with option to add Extra Mattress.`}</div>
         ${HOURLY_ROOM_TYPES.includes(room.roomType) ? '' : `<div class="meta">${room.inventory} unit${room.inventory > 1 ? 's' : ''} available</div>`}
-        ${HOURLY_ROOM_TYPES.includes(room.roomType) ? '' : `<div class="meta">${formatCurrency(EXTRA_GUEST_FEE)} / guest beyond included</div>`}
         ${ROOM_AMENITIES[room.roomType] ? `
         <ul class="amenities">
           ${ROOM_AMENITIES[room.roomType].map(item => `<li>${item}</li>`).join('')}

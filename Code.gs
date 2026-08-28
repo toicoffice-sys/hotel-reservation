@@ -42,7 +42,6 @@ var DEFAULT_ROOMS = [
 ];
 
 var MATTRESS_FEE_PER_UNIT = 500;
-var EXTRA_GUEST_FEE = 400;
 var STANDARD_CHECKIN_TIME = '14:00:00';
 
 // Billed by actual Check-In → Check-Out duration rather than calendar
@@ -684,11 +683,8 @@ function computePricing_(room, start, end, checkOutTime, guests, mattressQty) {
 
   var mattressFee = Math.max(0, mattressQty) * MATTRESS_FEE_PER_UNIT;
 
-  var extraGuests = Math.max(0, guests - room.includedGuests);
-  var extraGuestFee = extraGuests * EXTRA_GUEST_FEE;
-
   var roomCost = isHourly ? room.rate * hours : room.rate * nights;
-  var totalExpenses = roomCost + mattressFee + extraGuestFee;
+  var totalExpenses = roomCost + mattressFee;
 
   return {
     nights: nights,
@@ -697,7 +693,6 @@ function computePricing_(room, start, end, checkOutTime, guests, mattressQty) {
     roomCost: roomCost,
     lateCheckoutFee: 0,
     mattressFee: mattressFee,
-    extraGuestFee: extraGuestFee,
     totalExpenses: totalExpenses
   };
 }

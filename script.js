@@ -136,7 +136,7 @@ function onRoomChange() {
     } else {
       guestsInput.disabled = false;
       guestsInput.value = room.includedGuests;
-      hint.textContent = `Includes ${room.includedGuests} guests. Max ${room.maxGuests}. PHP ${EXTRA_GUEST_FEE} per extra guest.`;
+      hint.textContent = `Includes ${room.includedGuests} guests, up to ${room.maxGuests} at no extra charge. Add Extra Mattress for more.`;
     }
   } else {
     guestsInput.disabled = false;
@@ -284,12 +284,10 @@ function computePricing(room, checkIn, checkInTime, checkOut, checkOutTime, gues
   const hours = Math.max(1, Math.ceil((end - start) / 3600000));
 
   const mattressFee = Math.max(0, Number(mattressQty) || 0) * MATTRESS_FEE_PER_UNIT;
-  const extraGuests = Math.max(0, (Number(guests) || 0) - room.includedGuests);
-  const extraGuestFee = extraGuests * EXTRA_GUEST_FEE;
   const roomCost = isHourly ? room.rate * hours : room.rate * nights;
-  const totalExpenses = roomCost + mattressFee + extraGuestFee;
+  const totalExpenses = roomCost + mattressFee;
 
-  return { nights, hours, isHourly, roomRate: room.rate, roomCost, mattressFee, extraGuestFee, totalExpenses };
+  return { nights, hours, isHourly, roomRate: room.rate, roomCost, mattressFee, totalExpenses };
 }
 
 // Extra Mattress is for overflowing past a room's max occupancy, so it only
@@ -333,7 +331,6 @@ function updateSummary() {
   document.getElementById('sumNights').textContent = pricing ? (pricing.isHourly ? pricing.hours : pricing.nights) : '—';
   document.getElementById('sumRoomCost').textContent = pricing ? formatCurrency(pricing.roomCost) : '—';
   document.getElementById('sumMattressFee').textContent = pricing ? formatCurrency(pricing.mattressFee) : '—';
-  document.getElementById('sumGuestFee').textContent = pricing ? formatCurrency(pricing.extraGuestFee) : '—';
   document.getElementById('sumTotal').textContent = pricing ? formatCurrency(pricing.totalExpenses) : 'PHP 0';
 }
 
