@@ -535,6 +535,10 @@ section#top .container {
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
   padding: 14px 16px;
+  /* Backstop against native type="date"/type="time" controls (Mobile
+     Safari especially) rendering wider than their box regardless of width/
+     max-width — clip rather than let the card (or the page) grow wider. */
+  overflow-x: hidden;
 }
 
 .form-grid {
@@ -575,6 +579,7 @@ section#top .container {
 .field input[type="time"] {
   -webkit-min-logical-width: 100%;
   min-width: 100%;
+  max-width: 100%;
 }
 
 .field input:focus,
