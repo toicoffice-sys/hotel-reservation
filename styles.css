@@ -570,13 +570,19 @@ section#top .container {
   box-sizing: border-box;
 }
 
-/* Mobile Safari has a long-standing bug where type="date"/type="time"
-   ignore width:100% in a flex/grid layout and render at their own
-   intrinsic content width instead, overflowing/clipping their box —
-   -webkit-min-logical-width is the standard fix (still respected by
-   Mobile Safari for exactly this case even though it's non-standard). */
+/* iOS renders type="date"/type="time" with their own native widget box
+   model, sized from content rather than CSS width, however width/min-width
+   are set — that's why they kept coming out a different size than a plain
+   input like Number of Guests. appearance:none strips that native widget
+   chrome so it's laid out as a normal text box (still opens the native
+   date/time picker on tap), then width:100% behaves identically to every
+   other field. -webkit-min-logical-width/min-width/max-width kept as a
+   belt-and-suspenders fallback for older engines that ignore appearance
+   on these input types. */
 .field input[type="date"],
 .field input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
   -webkit-min-logical-width: 100%;
   min-width: 100%;
   max-width: 100%;
@@ -1300,12 +1306,6 @@ tbody tr:hover { background: var(--green-50); }
   .field select,
   .field textarea { font-size: 16px; padding: 8px 10px; }
   .field .hint { font-size: 11px; }
-
-  /* Tighter horizontal padding gives the native date/time control's own
-     formatted value ("Aug 28, 2026", "2:00 PM") more room to fit without
-     crowding its box, now that each gets the full row width to itself. */
-  .field input[type="date"],
-  .field input[type="time"] { padding: 8px 6px; }
 
   .mini-calendar { padding: 10px 10px 12px; }
   .cal-day { padding: 8px 0; font-size: 13px; }
