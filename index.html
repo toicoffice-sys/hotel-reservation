@@ -79,7 +79,7 @@
         <div class="field">
           <label for="checkInTime">Check-In Time</label>
           <input type="time" id="checkInTime" name="checkInTime" value="14:00" required />
-          <span class="hint">Standard check-in begins at 2:00 PM.</span>
+          <span class="hint" id="checkInTimeHint">Standard check-in begins at 2:00 PM.</span>
         </div>
 
         <div class="field">
@@ -156,7 +156,7 @@
 
       <div class="summary" id="pricingSummary">
         <div class="summary-row"><span>Room Rate</span><span id="sumRoomRate">—</span></div>
-        <div class="summary-row"><span>Nights</span><span id="sumNights">—</span></div>
+        <div class="summary-row"><span id="sumNightsLabel">Nights</span><span id="sumNights">—</span></div>
         <div class="summary-row"><span>Room Cost</span><span id="sumRoomCost">—</span></div>
         <div class="summary-row"><span>Mattress Fee</span><span id="sumMattressFee">—</span></div>
         <div class="summary-row"><span>Extra Guest Fee</span><span id="sumGuestFee">—</span></div>

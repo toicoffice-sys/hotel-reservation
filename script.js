@@ -117,6 +117,13 @@ function onRoomChange() {
   const guestsInput = document.getElementById('guests');
   const isVenue = room && HOURLY_ROOM_TYPES.includes(room.roomType);
 
+  // Venues are booked by the hour at whatever time suits the event, not tied
+  // to the overnight rooms' 2:00 PM standard check-in.
+  const checkInTimeHint = document.getElementById('checkInTimeHint');
+  checkInTimeHint.textContent = isVenue
+    ? 'Set to whatever time your event starts.'
+    : 'Standard check-in begins at 2:00 PM.';
+
   if (room) {
     guestsInput.max = room.maxGuests;
     if (isVenue) {
@@ -270,13 +277,19 @@ function computePricing(room, checkIn, checkInTime, checkOut, checkOutTime, gues
   const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
   const nights = Math.max(1, Math.round((endDay - startDay) / 86400000));
 
+  // Venues are billed by actual Check-In → Check-Out duration, not by
+  // calendar nights — a 3-hour event on the same day shouldn't cost the
+  // same as an 8-hour one just because both round to "1 night".
+  const isHourly = HOURLY_ROOM_TYPES.includes(room.roomType);
+  const hours = Math.max(1, Math.ceil((end - start) / 3600000));
+
   const mattressFee = Math.max(0, Number(mattressQty) || 0) * MATTRESS_FEE_PER_UNIT;
   const extraGuests = Math.max(0, (Number(guests) || 0) - room.includedGuests);
   const extraGuestFee = extraGuests * EXTRA_GUEST_FEE;
-  const roomCost = room.rate * nights;
+  const roomCost = isHourly ? room.rate * hours : room.rate * nights;
   const totalExpenses = roomCost + mattressFee + extraGuestFee;
 
-  return { nights, roomRate: room.rate, roomCost, mattressFee, extraGuestFee, totalExpenses };
+  return { nights, hours, isHourly, roomRate: room.rate, roomCost, mattressFee, extraGuestFee, totalExpenses };
 }
 
 // Extra Mattress is for overflowing past a room's max occupancy, so it only
@@ -316,7 +329,8 @@ function updateSummary() {
   const pricing = computePricing(room, checkIn, checkInTime, checkOut, checkOutTime, guests, mattressQty);
 
   document.getElementById('sumRoomRate').textContent = room ? formatCurrency(room.rate) : '—';
-  document.getElementById('sumNights').textContent = pricing ? pricing.nights : '—';
+  document.getElementById('sumNightsLabel').textContent = pricing && pricing.isHourly ? 'Hours' : 'Nights';
+  document.getElementById('sumNights').textContent = pricing ? (pricing.isHourly ? pricing.hours : pricing.nights) : '—';
   document.getElementById('sumRoomCost').textContent = pricing ? formatCurrency(pricing.roomCost) : '—';
   document.getElementById('sumMattressFee').textContent = pricing ? formatCurrency(pricing.mattressFee) : '—';
   document.getElementById('sumGuestFee').textContent = pricing ? formatCurrency(pricing.extraGuestFee) : '—';

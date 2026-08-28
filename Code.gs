@@ -45,6 +45,10 @@ var MATTRESS_FEE_PER_UNIT = 500;
 var EXTRA_GUEST_FEE = 400;
 var STANDARD_CHECKIN_TIME = '14:00:00';
 
+// Billed by actual Check-In → Check-Out duration rather than calendar
+// nights — keep in sync with HOURLY_ROOM_TYPES in common.js.
+var HOURLY_ROOM_TYPES = ['Cafe Le Barako', 'Chez Rafael Function Hall'];
+
 // ── HTTP entry points ───────────────────────────────────────────────────────
 
 function doGet(e) {
@@ -675,17 +679,20 @@ function getProofOfPaymentFolder_() {
 // server-authoritative here since submission always recomputes before writing.
 function computePricing_(room, start, end, checkOutTime, guests, mattressQty) {
   var nights = Math.max(1, Math.round((stripTime_(end) - stripTime_(start)) / 86400000));
+  var isHourly = HOURLY_ROOM_TYPES.indexOf(room.roomType) !== -1;
+  var hours = Math.max(1, Math.ceil((end - start) / 3600000));
 
   var mattressFee = Math.max(0, mattressQty) * MATTRESS_FEE_PER_UNIT;
 
   var extraGuests = Math.max(0, guests - room.includedGuests);
   var extraGuestFee = extraGuests * EXTRA_GUEST_FEE;
 
-  var roomCost = room.rate * nights;
+  var roomCost = isHourly ? room.rate * hours : room.rate * nights;
   var totalExpenses = roomCost + mattressFee + extraGuestFee;
 
   return {
     nights: nights,
+    hours: hours,
     roomRate: room.rate,
     roomCost: roomCost,
     lateCheckoutFee: 0,
