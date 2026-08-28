@@ -733,7 +733,7 @@ function sendStatusUpdateEmail_(email, info) {
     'Status: ' + info.status,
     info.adminRemarks ? ('Remarks: ' + info.adminRemarks) : '',
     info.status === 'Approved'
-      ? 'To confirm your booking, please reply to this email with your proof of payment (a screenshot or PDF of your payment/deposit receipt) attached.'
+      ? 'Upload Proof of Payment: Please reply to this email with a screenshot or PDF of your receipt attached.'
       : '',
     '',
     'Sincerely,',
