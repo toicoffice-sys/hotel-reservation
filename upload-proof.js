@@ -110,7 +110,9 @@ async function onSubmit(e, reservationId, token) {
       return;
     }
     document.getElementById('upState').innerHTML =
-      '<div class="alert alert-success">Thank you! We’ve received your proof of payment. Our team will follow up if anything else is needed.</div>';
+      '<div class="alert alert-success">Thank you! We’ve received your proof of payment. Our team will follow up if anything else is needed. ' +
+      'Redirecting you to the home page in 30 seconds…</div>';
+    setTimeout(() => navigateTop('index.html', '?'), 30000);
   } catch (err) {
     alertEl.innerHTML = '<div class="alert alert-error">Could not reach the reservation system. Please try again later.</div>';
     btn.disabled = false;
