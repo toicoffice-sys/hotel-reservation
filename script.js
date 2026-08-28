@@ -266,6 +266,25 @@ function computePricing(room, checkIn, checkInTime, checkOut, checkOutTime, gues
   return { nights, roomRate: room.rate, roomCost, mattressFee, extraGuestFee, totalExpenses };
 }
 
+// Extra Mattress is for overflowing past a room's max occupancy, so it only
+// makes sense once Number of Guests has actually reached that ceiling —
+// otherwise disable it (and clear any stale qty) so it can't be selected.
+function updateMattressAvailability(room, guests) {
+  const input = document.getElementById('mattressQty');
+  const hint = document.getElementById('mattressHint');
+  const atMaxOccupancy = !!room && Number(guests) >= room.maxGuests;
+
+  input.disabled = !atMaxOccupancy;
+  if (!atMaxOccupancy) {
+    input.value = 0;
+    hint.textContent = room
+      ? `PHP ${MATTRESS_FEE_PER_UNIT} per mattress. Available once Number of Guests reaches this room's max occupancy (${room.maxGuests}).`
+      : `PHP ${MATTRESS_FEE_PER_UNIT} per mattress. Select a room and reach its max occupancy to enable.`;
+  } else {
+    hint.textContent = `PHP ${MATTRESS_FEE_PER_UNIT} per mattress.`;
+  }
+}
+
 function updateSummary() {
   const room = getRoom(document.getElementById('roomType').value);
   const checkIn = document.getElementById('checkIn').value;
@@ -273,6 +292,8 @@ function updateSummary() {
   const checkOut = document.getElementById('checkOut').value;
   const checkOutTime = document.getElementById('checkOutTime').value;
   const guests = document.getElementById('guests').value;
+
+  updateMattressAvailability(room, guests);
   const mattressQty = document.getElementById('mattressQty').value;
 
   const pricing = computePricing(room, checkIn, checkInTime, checkOut, checkOutTime, guests, mattressQty);
