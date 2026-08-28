@@ -74,6 +74,8 @@ function doGet(e) {
         return jsonOutput({ ok: true, logs: getAuditLog_() });
       case 'requestOtp':
         return jsonOutput(requestOtp(e.parameter.email));
+      case 'getGuestReservation':
+        return jsonOutput(getGuestReservation(e.parameter.reservationId, e.parameter.token));
       default:
         return jsonOutput({ ok: false, error: 'Unknown or missing action.' });
     }
@@ -91,7 +93,9 @@ var PAGE_TEMPLATES_ = {
   'safety-security': 'SafetySecurity',
   sustainability: 'Sustainability',
   'house-rules': 'HouseRules',
-  'facilities-rules': 'FacilitiesRules'
+  'facilities-rules': 'FacilitiesRules',
+  'upload-proof': 'UploadProof',
+  'cancel-reservation': 'CancelReservation'
 };
 
 function renderPage_(e) {
@@ -102,9 +106,12 @@ function renderPage_(e) {
   // location never reflects the original request's query string, so
   // Index.html can't just read ?room=/?book= off window.location — the
   // Apps Script build embeds these values server-side instead (see
-  // deploy.sh).
+  // deploy.sh). UploadProof/CancelReservation lean on the same trick for
+  // the ?res=/?token= pair from the guest's emailed link.
   template.preselectRoom = (e && e.parameter && e.parameter.room) ? e.parameter.room : '';
   template.showBooking = !!(e && e.parameter && e.parameter.book);
+  template.guestReservationId = (e && e.parameter && e.parameter.res) ? e.parameter.res : '';
+  template.guestToken = (e && e.parameter && e.parameter.token) ? e.parameter.token : '';
   return template.evaluate()
     .setTitle('DLSL Chez Rafael')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -141,6 +148,10 @@ function doPost(e) {
         return jsonOutput(removeAdmin(body.email, removeSession.email));
       case 'submitContactInquiry':
         return jsonOutput(submitContactInquiry(body));
+      case 'submitProofOfPayment':
+        return jsonOutput(submitProofOfPayment(body));
+      case 'guestCancelReservation':
+        return jsonOutput(guestCancelReservation(body.reservationId, body.token));
       default:
         return jsonOutput({ ok: false, error: 'Unknown or missing action.' });
     }
@@ -627,6 +638,18 @@ function stripTime_(date) {
 
 // ── Admin: status updates ───────────────────────────────────────────────────
 
+// Shared by updateReservationStatus/submitProofOfPayment/guestCancelReservation
+// so they don't each re-implement the "scan column A for this ID" scan.
+function findReservationRowNum_(sheet, reservationId) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2 || !reservationId) return -1;
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (ids[i][0] === reservationId) return i + 2;
+  }
+  return -1;
+}
+
 function updateReservationStatus(reservationId, newStatus, adminRemarks, reviewedBy) {
   if (!reservationId || !newStatus) {
     return { ok: false, error: 'Reservation ID and new status are required.' };
@@ -638,32 +661,131 @@ function updateReservationStatus(reservationId, newStatus, adminRemarks, reviewe
 
   var sheet = getReservationsSheet_();
   var idx = headerIndex_();
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { ok: false, error: 'Reservation not found.' };
+  var rowNum = findReservationRowNum_(sheet, reservationId);
+  if (rowNum === -1) return { ok: false, error: 'Reservation not found.' };
 
-  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  for (var i = 0; i < ids.length; i++) {
-    if (ids[i][0] === reservationId) {
-      var rowNum = i + 2;
-      sheet.getRange(rowNum, idx['Status'] + 1).setValue(newStatus);
-      sheet.getRange(rowNum, idx['Admin Remarks'] + 1).setValue(adminRemarks || '');
-      sheet.getRange(rowNum, idx['Reviewed By'] + 1).setValue(reviewedBy || '');
-      sheet.getRange(rowNum, idx['Reviewed At'] + 1).setValue(new Date());
+  sheet.getRange(rowNum, idx['Status'] + 1).setValue(newStatus);
+  sheet.getRange(rowNum, idx['Admin Remarks'] + 1).setValue(adminRemarks || '');
+  sheet.getRange(rowNum, idx['Reviewed By'] + 1).setValue(reviewedBy || '');
+  sheet.getRange(rowNum, idx['Reviewed At'] + 1).setValue(new Date());
 
-      var email = sheet.getRange(rowNum, idx['Email'] + 1).getValue();
-      var fullName = sheet.getRange(rowNum, idx['Full Name'] + 1).getValue();
-      var roomType = sheet.getRange(rowNum, idx['Room Type'] + 1).getValue();
-      logAudit_(reviewedBy, 'Reservation ' + newStatus, reservationId + ' (' + fullName + ', ' + roomType + ')');
-      if (newStatus === 'Approved' || newStatus === 'Rejected' || newStatus === 'Declined') {
-        sendStatusUpdateEmail_(email, {
-          reservationId: reservationId, fullName: fullName, roomType: roomType,
-          status: newStatus, adminRemarks: adminRemarks || ''
-        });
-      }
-      return { ok: true, reservationId: reservationId, status: newStatus };
-    }
+  var email = sheet.getRange(rowNum, idx['Email'] + 1).getValue();
+  var fullName = sheet.getRange(rowNum, idx['Full Name'] + 1).getValue();
+  var roomType = sheet.getRange(rowNum, idx['Room Type'] + 1).getValue();
+  logAudit_(reviewedBy, 'Reservation ' + newStatus, reservationId + ' (' + fullName + ', ' + roomType + ')');
+  if (newStatus === 'Approved' || newStatus === 'Rejected' || newStatus === 'Declined') {
+    sendStatusUpdateEmail_(email, {
+      reservationId: reservationId, fullName: fullName, roomType: roomType,
+      status: newStatus, adminRemarks: adminRemarks || ''
+    });
   }
-  return { ok: false, error: 'Reservation not found.' };
+  return { ok: true, reservationId: reservationId, status: newStatus };
+}
+
+// ── Guest self-service (proof of payment upload / cancellation) ─────────────
+// Reached only via the signed links in the approval email — see
+// signReservationToken_ and sendStatusUpdateEmail_. The token stands in for
+// a login: it proves the requester actually received that specific email,
+// so a guessed/enumerated Reservation ID alone can't touch someone else's
+// booking.
+
+function getEmailActionSecret_() {
+  var props = PropertiesService.getScriptProperties();
+  var secret = props.getProperty('EMAIL_ACTION_SECRET');
+  if (!secret) {
+    secret = Utilities.getUuid() + Utilities.getUuid();
+    props.setProperty('EMAIL_ACTION_SECRET', secret);
+  }
+  return secret;
+}
+
+function signReservationToken_(reservationId) {
+  var bytes = Utilities.computeHmacSha256Signature(String(reservationId), getEmailActionSecret_());
+  return bytes.map(function (b) { return ((b + 256) % 256).toString(16).padStart(2, '0'); }).join('');
+}
+
+function verifyReservationToken_(reservationId, token) {
+  return !!reservationId && !!token && signReservationToken_(reservationId) === token;
+}
+
+// Limited, token-gated view of a reservation for the guest-facing
+// upload-proof/cancel-reservation pages — deliberately returns far less
+// than the admin's getReservations() (no phone, remarks, etc.).
+function getGuestReservation(reservationId, token) {
+  if (!verifyReservationToken_(reservationId, token)) {
+    return { ok: false, error: 'This link is invalid or has expired.' };
+  }
+  var sheet = getReservationsSheet_();
+  var idx = headerIndex_();
+  var rowNum = findReservationRowNum_(sheet, reservationId);
+  if (rowNum === -1) return { ok: false, error: 'Reservation not found.' };
+
+  var row = sheet.getRange(rowNum, 1, 1, RESERVATION_HEADERS.length).getValues()[0];
+  return {
+    ok: true,
+    reservationId: reservationId,
+    fullName: row[idx['Full Name']],
+    roomType: row[idx['Room Type']],
+    checkIn: row[idx['Check-In']],
+    checkOut: row[idx['Check-Out']],
+    totalExpenses: row[idx['Total Expenses']],
+    status: row[idx['Status']],
+    hasProofOfPayment: !!row[idx['Proof of Payment']]
+  };
+}
+
+function submitProofOfPayment(body) {
+  var reservationId = body && body.reservationId;
+  var token = body && body.token;
+  if (!verifyReservationToken_(reservationId, token)) {
+    return { ok: false, error: 'This link is invalid or has expired.' };
+  }
+  if (!body.proofOfPaymentData) {
+    return { ok: false, error: 'Please attach a screenshot or PDF of your payment receipt.' };
+  }
+
+  var sheet = getReservationsSheet_();
+  var idx = headerIndex_();
+  var rowNum = findReservationRowNum_(sheet, reservationId);
+  if (rowNum === -1) return { ok: false, error: 'Reservation not found.' };
+
+  var status = sheet.getRange(rowNum, idx['Status'] + 1).getValue();
+  if (status !== 'Approved') {
+    return { ok: false, error: 'Proof of payment can only be uploaded for an approved reservation.' };
+  }
+
+  var url = saveProofOfPayment_(body.proofOfPaymentData, body.proofOfPaymentName, body.proofOfPaymentType, reservationId);
+  sheet.getRange(rowNum, idx['Proof of Payment'] + 1).setValue(url);
+
+  var fullName = sheet.getRange(rowNum, idx['Full Name'] + 1).getValue();
+  var roomType = sheet.getRange(rowNum, idx['Room Type'] + 1).getValue();
+  logAudit_('Guest', 'Proof of payment uploaded', reservationId + ' (' + fullName + ', ' + roomType + ')');
+  return { ok: true, reservationId: reservationId };
+}
+
+function guestCancelReservation(reservationId, token) {
+  if (!verifyReservationToken_(reservationId, token)) {
+    return { ok: false, error: 'This link is invalid or has expired.' };
+  }
+  var sheet = getReservationsSheet_();
+  var idx = headerIndex_();
+  var rowNum = findReservationRowNum_(sheet, reservationId);
+  if (rowNum === -1) return { ok: false, error: 'Reservation not found.' };
+
+  var status = sheet.getRange(rowNum, idx['Status'] + 1).getValue();
+  if (status === 'Rejected' || status === 'Declined') {
+    return { ok: false, error: 'This reservation is already ' + status.toLowerCase() + '.' };
+  }
+
+  sheet.getRange(rowNum, idx['Status'] + 1).setValue('Declined');
+  sheet.getRange(rowNum, idx['Admin Remarks'] + 1).setValue('Cancelled by guest via email link.');
+  sheet.getRange(rowNum, idx['Reviewed By'] + 1).setValue('Guest (self-service)');
+  sheet.getRange(rowNum, idx['Reviewed At'] + 1).setValue(new Date());
+
+  var fullName = sheet.getRange(rowNum, idx['Full Name'] + 1).getValue();
+  var roomType = sheet.getRange(rowNum, idx['Room Type'] + 1).getValue();
+  logAudit_('Guest', 'Reservation cancelled by guest', reservationId + ' (' + fullName + ', ' + roomType + ')');
+  return { ok: true, reservationId: reservationId };
 }
 
 // ── Date/time utilities ──────────────────────────────────────────────────────
@@ -723,7 +845,7 @@ function sendReservationEmail(email, info) {
 function sendStatusUpdateEmail_(email, info) {
   if (!email) return;
   var subject = 'DLSL Guest House Reservation ' + info.status + ' — ' + info.reservationId;
-  var body = [
+  var lines = [
     'Dear ' + info.fullName + ',',
     '',
     'Your reservation request has been reviewed.',
@@ -731,15 +853,50 @@ function sendStatusUpdateEmail_(email, info) {
     'Reservation ID: ' + info.reservationId,
     'Room Type: ' + info.roomType,
     'Status: ' + info.status,
-    info.adminRemarks ? ('Remarks: ' + info.adminRemarks) : '',
-    info.status === 'Approved'
-      ? 'Upload Proof of Payment: Please reply to this email with a screenshot or PDF of your receipt attached.'
-      : '',
-    '',
-    'Sincerely,',
-    'Chez Rafael'
-  ].filter(function (l) { return l !== ''; }).join('\n');
-  MailApp.sendEmail({ to: email, subject: subject, body: body });
+    info.adminRemarks ? ('Remarks: ' + info.adminRemarks) : ''
+  ];
+
+  // Approved is the only status with follow-up actions — real, permanent
+  // links (token-signed so a guessed Reservation ID can't touch someone
+  // else's booking), not Gmail's own auto-suggested Smart Reply chips,
+  // which this app has no way to set.
+  var htmlActions = '';
+  if (info.status === 'Approved') {
+    var baseUrl = ScriptApp.getService().getUrl();
+    var token = signReservationToken_(info.reservationId);
+    var uploadUrl = baseUrl + '?page=upload-proof&res=' + encodeURIComponent(info.reservationId) + '&token=' + token;
+    var cancelUrl = baseUrl + '?page=cancel-reservation&res=' + encodeURIComponent(info.reservationId) + '&token=' + token;
+
+    lines.push('', 'Upload your proof of payment: ' + uploadUrl);
+    lines.push('No longer interested? Cancel your reservation: ' + cancelUrl);
+
+    htmlActions =
+      '<div style="margin:24px 0;">' +
+        '<a href="' + uploadUrl + '" style="display:inline-block;background:#0e6b3f;color:#ffffff;text-decoration:none;' +
+          'font-weight:600;padding:12px 22px;border-radius:8px;margin:0 12px 12px 0;">Upload Proof of Payment</a>' +
+        '<a href="' + cancelUrl + '" style="display:inline-block;background:#c0392b;color:#ffffff;text-decoration:none;' +
+          'font-weight:600;padding:12px 22px;border-radius:8px;margin:0 0 12px 0;">No Longer Interested</a>' +
+      '</div>';
+  }
+
+  lines.push('', 'Sincerely,', 'Chez Rafael');
+  var plainBody = lines.filter(function (l) { return l !== ''; }).join('\n');
+
+  var htmlBody =
+    '<div style="font-family:Arial,Helvetica,sans-serif;color:#1c231f;font-size:14px;line-height:1.6;">' +
+      '<p>Dear ' + info.fullName + ',</p>' +
+      '<p>Your reservation request has been reviewed.</p>' +
+      '<p>' +
+        'Reservation ID: ' + info.reservationId + '<br>' +
+        'Room Type: ' + info.roomType + '<br>' +
+        'Status: <strong>' + info.status + '</strong>' +
+        (info.adminRemarks ? ('<br>Remarks: ' + info.adminRemarks) : '') +
+      '</p>' +
+      htmlActions +
+      '<p>Sincerely,<br>Chez Rafael</p>' +
+    '</div>';
+
+  MailApp.sendEmail({ to: email, subject: subject, body: plainBody, htmlBody: htmlBody });
 }
 
 // ── Contact Us inquiries ────────────────────────────────────────────────────

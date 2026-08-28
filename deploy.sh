@@ -68,6 +68,10 @@ cp .clasp.json "$BUILD_DIR/.clasp.json"
 
 { echo "<script>"; cat admin.js; echo "</script>"; } > "$BUILD_DIR/AdminScript.html"
 
+{ echo "<script>"; cat upload-proof.js; echo "</script>"; } > "$BUILD_DIR/UploadProofScript.html"
+
+{ echo "<script>"; cat cancel-reservation.js; echo "</script>"; } > "$BUILD_DIR/CancelReservationScript.html"
+
 # Shared by every page's footer, which links out to all four policy pages.
 POLICY_HREF_RULES=(
   -e 's|href="safety-security.html"|href="?page=safety-security"|'
@@ -121,6 +125,32 @@ sed \
   -e "s|src=\"images/|src=\"${IMAGE_BASE}images/|g" \
   admin.html > "$BUILD_DIR/Admin.html"
 
+# Upload-proof/cancel-reservation are reached from the signed links in the
+# approval email — like Index's ?room=/?book=, their ?res=/?token= query
+# params can't be read client-side inside the sandboxed iframe, so the build
+# embeds them server-side the same way (see renderPage_ in Code.gs).
+sed \
+  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
+  -e "s|<script src=\"common.js\"></script>|<?!= include('CommonScript'); ?>|" \
+  -e "s|<script src=\"upload-proof.js\"></script>|<?!= include('UploadProofScript'); ?>|" \
+  -e 's|href="index.html"|href="?"|' \
+  -e 's|href="rooms.html"|href="?page=rooms"|' \
+  -e 's|href="gallery.html"|href="?page=gallery"|' \
+  -e "s|src=\"images/|src=\"${IMAGE_BASE}images/|g" \
+  -e "s|<body>|<body><script>var GAS_RESERVATION_ID = <?!= JSON.stringify(guestReservationId); ?>; var GAS_TOKEN = <?!= JSON.stringify(guestToken); ?>;</script>|" \
+  upload-proof.html > "$BUILD_DIR/UploadProof.html"
+
+sed \
+  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
+  -e "s|<script src=\"common.js\"></script>|<?!= include('CommonScript'); ?>|" \
+  -e "s|<script src=\"cancel-reservation.js\"></script>|<?!= include('CancelReservationScript'); ?>|" \
+  -e 's|href="index.html"|href="?"|' \
+  -e 's|href="rooms.html"|href="?page=rooms"|' \
+  -e 's|href="gallery.html"|href="?page=gallery"|' \
+  -e "s|src=\"images/|src=\"${IMAGE_BASE}images/|g" \
+  -e "s|<body>|<body><script>var GAS_RESERVATION_ID = <?!= JSON.stringify(guestReservationId); ?>; var GAS_TOKEN = <?!= JSON.stringify(guestToken); ?>;</script>|" \
+  cancel-reservation.html > "$BUILD_DIR/CancelReservation.html"
+
 # Four policy pages share an identical build recipe (chrome + footer only,
 # no page-specific script beyond common.js's navigateTop).
 for pair in safety-security:SafetySecurity sustainability:Sustainability house-rules:HouseRules facilities-rules:FacilitiesRules; do
@@ -139,7 +169,7 @@ for pair in safety-security:SafetySecurity sustainability:Sustainability house-r
     "${slug}.html" > "$BUILD_DIR/${name}.html"
 done
 
-echo "✅  gas-build/ ready (16 files: Code.gs + appsscript.json + Styles/CommonScript/IndexScript/RoomsScript/GalleryScript/AdminScript includes + Index/Rooms/Gallery/Admin/SafetySecurity/Sustainability/HouseRules/FacilitiesRules pages)"
+echo "✅  gas-build/ ready (20 files: Code.gs + appsscript.json + Styles/CommonScript/IndexScript/RoomsScript/GalleryScript/AdminScript/UploadProofScript/CancelReservationScript includes + Index/Rooms/Gallery/Admin/SafetySecurity/Sustainability/HouseRules/FacilitiesRules/UploadProof/CancelReservation pages)"
 
 echo ""
 echo "📤  Pushing gas-build/ to Apps Script..."

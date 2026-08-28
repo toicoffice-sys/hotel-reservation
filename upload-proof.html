@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DLSL Chez Rafael — Upload Proof of Payment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://toicoffice-sys.github.io" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <div class="brand">
+      <span class="brand-wordmark">Chez Rafael</span>
+    </div>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="siteNav">
+      <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+    </button>
+    <nav class="site-nav" id="siteNav">
+      <a href="index.html" onclick="navigateTop('index.html', '?'); return false;">Home</a>
+      <a href="rooms.html" onclick="navigateTop('rooms.html', '?page=rooms'); return false;">Rooms</a>
+      <a href="gallery.html" onclick="navigateTop('gallery.html', '?page=gallery'); return false;">Gallery</a>
+    </nav>
+    <div class="header-actions">
+      <a href="#" onclick="openContactModal(); return false;">Contact Us</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero" id="top">
+  <div class="container">
+    <p class="eyebrow">DLSL Guest House</p>
+    <h2>Upload Proof of Payment</h2>
+    <p>Attach your payment receipt to finish confirming your reservation.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container" style="max-width: 640px;">
+    <div id="upState">
+      <p>Loading your reservation…</p>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <p>DLSL Chez Rafael Hotel Reservation System &middot; Guest House Administration</p>
+    <p class="footer-contact"><strong>TEL NO.</strong> : (043) 756-5555 (local 1102 or 1103)<br /> <strong>E-MAIL</strong> : info@dlsl.edu.ph</p>
+  </div>
+</footer>
+
+<div class="modal-backdrop" id="contactModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Contact Us</h3>
+      <button class="modal-close" id="contactModalClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-top:0; color: var(--muted);">Have a question about your stay? Send us a message and we'll reply by email.</p>
+      <div id="contactAlert"></div>
+      <form id="contactForm" autocomplete="off">
+        <div class="field" style="margin-bottom:14px;">
+          <label for="contactName">Full Name</label>
+          <input type="text" id="contactName" name="contactName" required />
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label for="contactEmail">Email</label>
+          <input type="email" id="contactEmail" name="contactEmail" required />
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label for="contactPhone">Phone (optional)</label>
+          <input type="tel" id="contactPhone" name="contactPhone" />
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label for="contactMessage">Message</label>
+          <textarea id="contactMessage" name="contactMessage" rows="4" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" id="contactSubmitBtn">Send Message</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="common.js"></script>
+<script src="upload-proof.js"></script>
+</body>
+</html>
