@@ -570,24 +570,6 @@ section#top .container {
   box-sizing: border-box;
 }
 
-/* iOS renders type="date"/type="time" with their own native widget box
-   model, sized from content rather than CSS width, however width/min-width
-   are set — that's why they kept coming out a different size than a plain
-   input like Number of Guests. appearance:none strips that native widget
-   chrome so it's laid out as a normal text box (still opens the native
-   date/time picker on tap), then width:100% behaves identically to every
-   other field. -webkit-min-logical-width/min-width/max-width kept as a
-   belt-and-suspenders fallback for older engines that ignore appearance
-   on these input types. */
-.field input[type="date"],
-.field input[type="time"] {
-  -webkit-appearance: none;
-  appearance: none;
-  -webkit-min-logical-width: 100%;
-  min-width: 100%;
-  max-width: 100%;
-}
-
 .field input:focus,
 .field select:focus,
 .field textarea:focus {
@@ -1300,6 +1282,25 @@ tbody tr:hover { background: var(--green-50); }
   .form-grid > .field:nth-child(8) { grid-column: 1 / -1; }
 
   #bookingSection .btn-outline { width: 100%; }
+
+  /* iOS renders type="date"/type="time" with their own native widget box
+     model, sized from content rather than CSS width — that's why they kept
+     coming out a different size than a plain input like Number of Guests
+     even at grid-column:1/-1. appearance:none strips that native widget
+     chrome so it lays out as an ordinary text box (still opens the native
+     date/time picker on tap), then width:100% behaves identically to every
+     other field. Scoped to mobile only — desktop doesn't have this bug and
+     appearance:none would just remove the calendar/clock icon there.
+     -webkit-min-logical-width/min-width/max-width are a belt-and-suspenders
+     fallback for older engines that ignore appearance on these inputs. */
+  .field input[type="date"],
+  .field input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-min-logical-width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+  }
 
   /* 16px keeps iOS Safari from zooming the page in on field focus */
   .field input,
