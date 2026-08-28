@@ -146,6 +146,9 @@ function doPost(e) {
       case 'removeAdmin':
         var removeSession = requireSession_(body.token);
         return jsonOutput(removeAdmin(body.email, removeSession.email));
+      case 'resyncRoomDefaults':
+        var resyncSession = requireSession_(body.token);
+        return jsonOutput(resyncRoomDefaults(resyncSession.email));
       case 'submitContactInquiry':
         return jsonOutput(submitContactInquiry(body));
       case 'submitProofOfPayment':
@@ -343,6 +346,38 @@ function getRoomByType_(roomType) {
     if (rooms[i].roomType === roomType) return rooms[i];
   }
   return null;
+}
+
+// DEFAULT_ROOMS only seeds the Rooms sheet the first time it's created — a
+// code change to those numbers (e.g. a Rooms & Venues capacity update)
+// otherwise never reaches a sheet that already existed. This admin action
+// pushes DEFAULT_ROOMS' Included/Max Guests onto matching rows by Room Type.
+// Rate and Inventory are left alone (the sheet is the source of truth there —
+// an admin may have adjusted a price or taken a unit out of service by hand,
+// and this shouldn't silently revert that).
+function resyncRoomDefaults(actorEmail) {
+  var sheet = getRoomsSheet_();
+  var idx = {};
+  ROOM_HEADERS.forEach(function (h, i) { idx[h] = i; });
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { ok: true, updated: [] };
+
+  var data = sheet.getRange(2, 1, lastRow - 1, ROOM_HEADERS.length).getValues();
+  var updated = [];
+  DEFAULT_ROOMS.forEach(function (def) {
+    var roomType = def[0], included = def[3], max = def[4];
+    for (var i = 0; i < data.length; i++) {
+      if (data[i][idx['Room Type']] === roomType) {
+        var rowNum = i + 2;
+        sheet.getRange(rowNum, idx['Included Guests'] + 1).setValue(included);
+        sheet.getRange(rowNum, idx['Max Guests'] + 1).setValue(max);
+        updated.push(roomType + ' (' + included + '/' + max + ')');
+        break;
+      }
+    }
+  });
+  logAudit_(actorEmail, 'Resynced room capacities from code defaults', updated.join(', ') || 'none');
+  return { ok: true, updated: updated };
 }
 
 // ── Reservations: read ──────────────────────────────────────────────────────
