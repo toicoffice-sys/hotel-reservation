@@ -543,6 +543,13 @@ function submitReservation(body) {
     return { ok: false, error: room.roomType + ' allows a maximum of ' + room.maxGuests + ' guests.' };
   }
 
+  // Extra Mattress qty is capped at the room's max guest occupancy — it's
+  // an overflow allowance on top of the max, not an unlimited add-on.
+  var mattressQty = Number(body.mattressQty || 0);
+  if (mattressQty > room.maxGuests) {
+    return { ok: false, error: 'Extra Mattress is limited to ' + room.maxGuests + ' for ' + room.roomType + '.' };
+  }
+
   var checkInTime = body.checkInTime || STANDARD_CHECKIN_TIME;
   var checkOutTime = body.checkOutTime || STANDARD_CHECKIN_TIME;
   var start = parseDateTime(body.checkIn, checkInTime);
@@ -558,7 +565,7 @@ function submitReservation(body) {
     return { ok: false, error: room.roomType + ' is fully booked for the selected date and time.' };
   }
 
-  var pricing = computePricing_(room, start, end, checkOutTime, guests, Number(body.mattressQty || 0));
+  var pricing = computePricing_(room, start, end, checkOutTime, guests, mattressQty);
 
   var reservationId = 'RES-' + Math.floor(Date.now() / 1000);
 
