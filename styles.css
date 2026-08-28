@@ -563,6 +563,18 @@ section#top .container {
   font-family: inherit;
   background: var(--white);
   color: var(--ink);
+  box-sizing: border-box;
+}
+
+/* Mobile Safari has a long-standing bug where type="date"/type="time"
+   ignore width:100% in a flex/grid layout and render at their own
+   intrinsic content width instead, overflowing/clipping their box —
+   -webkit-min-logical-width is the standard fix (still respected by
+   Mobile Safari for exactly this case even though it's non-standard). */
+.field input[type="date"],
+.field input[type="time"] {
+  -webkit-min-logical-width: 100%;
+  min-width: 100%;
 }
 
 .field input:focus,
@@ -1283,6 +1295,12 @@ tbody tr:hover { background: var(--green-50); }
   .field select,
   .field textarea { font-size: 16px; padding: 8px 10px; }
   .field .hint { font-size: 11px; }
+
+  /* Tighter horizontal padding gives the native date/time control's own
+     formatted value ("Aug 28, 2026", "2:00 PM") more room to fit without
+     crowding its box, now that each gets the full row width to itself. */
+  .field input[type="date"],
+  .field input[type="time"] { padding: 8px 6px; }
 
   .mini-calendar { padding: 10px 10px 12px; }
   .cal-day { padding: 8px 0; font-size: 13px; }
