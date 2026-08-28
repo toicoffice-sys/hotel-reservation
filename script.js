@@ -135,7 +135,7 @@ function onRoomChange() {
       hint.textContent = `Fixed at this venue's capacity (${room.maxGuests} pax).`;
     } else {
       guestsInput.disabled = false;
-      if (!guestsInput.value) guestsInput.value = room.includedGuests;
+      guestsInput.value = room.includedGuests;
       hint.textContent = `Includes ${room.includedGuests} guests. Max ${room.maxGuests}. PHP ${EXTRA_GUEST_FEE} per extra guest.`;
     }
   } else {
