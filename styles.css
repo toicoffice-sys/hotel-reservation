@@ -41,6 +41,10 @@ a { color: inherit; }
   padding: 0 24px;
 }
 
+section#top .container {
+  width: 90%;
+}
+
 /* ── Header / nav ───────────────────────────────────────────────────── */
 
 .site-header {
