@@ -115,11 +115,24 @@ function onRoomChange() {
   const room = getRoom(document.getElementById('roomType').value);
   const hint = document.getElementById('guestsHint');
   const guestsInput = document.getElementById('guests');
+  const isVenue = room && HOURLY_ROOM_TYPES.includes(room.roomType);
+
   if (room) {
-    hint.textContent = `Includes ${room.includedGuests} guests. Max ${room.maxGuests}. PHP ${EXTRA_GUEST_FEE} per extra guest.`;
     guestsInput.max = room.maxGuests;
-    if (!guestsInput.value) guestsInput.value = room.includedGuests;
+    if (isVenue) {
+      // Cafe Le Barako / Chez Rafael Function Hall are flat-rate venue
+      // rentals — capacity is fixed at booking, not a per-guest count, so
+      // there's nothing to compute by changing it.
+      guestsInput.value = room.maxGuests;
+      guestsInput.disabled = true;
+      hint.textContent = `Fixed at this venue's capacity (${room.maxGuests} pax).`;
+    } else {
+      guestsInput.disabled = false;
+      if (!guestsInput.value) guestsInput.value = room.includedGuests;
+      hint.textContent = `Includes ${room.includedGuests} guests. Max ${room.maxGuests}. PHP ${EXTRA_GUEST_FEE} per extra guest.`;
+    }
   } else {
+    guestsInput.disabled = false;
     hint.textContent = '';
     guestsInput.removeAttribute('max');
   }
@@ -272,10 +285,14 @@ function computePricing(room, checkIn, checkInTime, checkOut, checkOutTime, gues
 function updateMattressAvailability(room, guests) {
   const input = document.getElementById('mattressQty');
   const hint = document.getElementById('mattressHint');
-  const atMaxOccupancy = !!room && Number(guests) >= room.maxGuests;
+  const isVenue = room && HOURLY_ROOM_TYPES.includes(room.roomType);
+  const atMaxOccupancy = !!room && !isVenue && Number(guests) >= room.maxGuests;
 
   input.disabled = !atMaxOccupancy;
-  if (!atMaxOccupancy) {
+  if (isVenue) {
+    input.value = 0;
+    hint.textContent = `Not applicable for ${room.roomType} bookings.`;
+  } else if (!atMaxOccupancy) {
     input.value = 0;
     hint.textContent = room
       ? `PHP ${MATTRESS_FEE_PER_UNIT} per mattress. Available once Number of Guests reaches this room's max occupancy (${room.maxGuests}).`
