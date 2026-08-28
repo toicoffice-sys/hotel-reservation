@@ -25,10 +25,6 @@ var RESERVATION_HEADERS = [
   'Guests Name', 'Guests Company / Address'
 ];
 
-// Guests booking with a non-DLSL email must attach proof of payment.
-var DLSL_EMAIL_DOMAIN = '@dlsl.edu.ph';
-var MAX_PROOF_OF_PAYMENT_BYTES = 5 * 1024 * 1024;
-
 var ROOM_HEADERS = ['Room Type', 'Inventory', 'Rate', 'Included Guests', 'Max Guests'];
 
 // Single source of truth for room rates/capacity — the Rooms sheet.
@@ -489,13 +485,6 @@ function submitReservation(body) {
     }
   }
 
-  if (!isDlslEmail_(body.email) && !body.proofOfPaymentData) {
-    return { ok: false, error: 'Please attach a proof of payment — required for non-DLSL email addresses.' };
-  }
-  if (body.proofOfPaymentData && estimateBase64Bytes_(body.proofOfPaymentData) > MAX_PROOF_OF_PAYMENT_BYTES) {
-    return { ok: false, error: 'Proof of payment file is too large (max 5 MB).' };
-  }
-
   var room = getRoomByType_(body.roomType);
   if (!room) return { ok: false, error: 'Unknown room type.' };
 
@@ -578,18 +567,6 @@ function submitReservation(body) {
     status: 'Pending Approval',
     pricing: pricing
   };
-}
-
-function isDlslEmail_(email) {
-  var e = String(email || '').trim().toLowerCase();
-  return e.length > DLSL_EMAIL_DOMAIN.length && e.slice(-DLSL_EMAIL_DOMAIN.length) === DLSL_EMAIL_DOMAIN;
-}
-
-// Base64 -> byte-size estimate (no need to decode just to check length).
-function estimateBase64Bytes_(base64) {
-  var s = String(base64 || '');
-  var padding = s.slice(-2) === '==' ? 2 : (s.slice(-1) === '=' ? 1 : 0);
-  return Math.floor(s.length * 0.75) - padding;
 }
 
 // Uploads a guest's proof-of-payment attachment to a dedicated Drive folder
@@ -755,6 +732,9 @@ function sendStatusUpdateEmail_(email, info) {
     'Room Type: ' + info.roomType,
     'Status: ' + info.status,
     info.adminRemarks ? ('Remarks: ' + info.adminRemarks) : '',
+    info.status === 'Approved'
+      ? 'To confirm your booking, please reply to this email with your proof of payment (a screenshot or PDF of your payment/deposit receipt) attached.'
+      : '',
     '',
     'Sincerely,',
     'Chez Rafael'
