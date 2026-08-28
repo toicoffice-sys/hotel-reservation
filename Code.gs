@@ -593,6 +593,34 @@ function saveProofOfPayment_(base64Data, fileName, mimeType, reservationId) {
   return file.getUrl();
 }
 
+// Drive access needs a one-time manual authorization (DriveApp.createFolder
+// fails with "Wala kang pahintulot..." until that's done — see the Apps
+// Script editor's Run button). Guests shouldn't be blocked by that: if Drive
+// isn't available yet, email the receipt straight to the admins instead, so
+// the upload still succeeds. Once Drive is authorized this goes back to
+// giving a real link automatically — no further code change needed.
+function saveOrEmailProofOfPayment_(base64Data, fileName, mimeType, reservationId, fullName, roomType) {
+  try {
+    return saveProofOfPayment_(base64Data, fileName, mimeType, reservationId);
+  } catch (err) {
+    var safeName = String(fileName || 'proof-of-payment').replace(/[\/\\]/g, '_');
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType || 'application/octet-stream', safeName);
+    MailApp.sendEmail({
+      to: getActiveAdminEmails_().join(','),
+      subject: 'Proof of Payment (emailed) — ' + reservationId,
+      body: [
+        'Drive storage isn\'t authorized yet, so this guest\'s proof of payment is attached directly to this email.',
+        '',
+        'Reservation ID: ' + reservationId,
+        'Guest: ' + fullName,
+        'Room Type: ' + roomType
+      ].join('\n'),
+      attachments: [blob]
+    });
+    return 'Emailed to admin (Drive not yet authorized) — ' + new Date().toLocaleString();
+  }
+}
+
 function getProofOfPaymentFolder_() {
   var props = PropertiesService.getScriptProperties();
   var folderId = props.getProperty('PROOF_OF_PAYMENT_FOLDER_ID');
@@ -754,11 +782,13 @@ function submitProofOfPayment(body) {
     return { ok: false, error: 'Proof of payment can only be uploaded for an approved reservation.' };
   }
 
-  var url = saveProofOfPayment_(body.proofOfPaymentData, body.proofOfPaymentName, body.proofOfPaymentType, reservationId);
-  sheet.getRange(rowNum, idx['Proof of Payment'] + 1).setValue(url);
-
   var fullName = sheet.getRange(rowNum, idx['Full Name'] + 1).getValue();
   var roomType = sheet.getRange(rowNum, idx['Room Type'] + 1).getValue();
+  var reference = saveOrEmailProofOfPayment_(
+    body.proofOfPaymentData, body.proofOfPaymentName, body.proofOfPaymentType, reservationId, fullName, roomType
+  );
+  sheet.getRange(rowNum, idx['Proof of Payment'] + 1).setValue(reference);
+
   logAudit_('Guest', 'Proof of payment uploaded', reservationId + ' (' + fullName + ', ' + roomType + ')');
   return { ok: true, reservationId: reservationId };
 }
