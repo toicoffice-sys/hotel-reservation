@@ -572,6 +572,12 @@ section#top .container {
   outline-offset: 1px;
 }
 
+.field input:disabled {
+  background: var(--green-50);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
 .field .hint {
   font-size: 10.5px;
   line-height: 1.3;
@@ -1242,10 +1248,9 @@ tbody tr:hover { background: var(--green-50); }
   .hero { min-height: 40vh; }
 
   /* ── Booking form on small screens ──────────────────────────────────
-     Short fields (room type / guests, check-in/out date + time, mattress /
-     check-availability) stay paired two-up so the form doesn't become an
-     endless single column; .field-full items already span. Only phones
-     narrower than 360px stack everything (rule below). */
+     Short fields (check-in/out date + time) stay paired two-up so the form
+     doesn't become an endless single column; .field-full items already
+     span. Only phones narrower than 360px stack everything (rule below). */
   #bookingSection .container { padding: 0 14px; }
   #bookingSection .section-title { flex-wrap: wrap; gap: 8px; }
   #bookingSection .section-title #changeRoomBtn { margin-left: auto; }
@@ -1254,10 +1259,18 @@ tbody tr:hover { background: var(--green-50); }
   .form-grid { gap: 8px 10px; }
 
   /* Room Type + Number of Guests go full width (a half-width <select>
-     clips its option text); keeping it an even count means Check-In /
-     Check-Out Date + Time still line up as pairs on the rows below. */
+     clips its option text). Extra Mattress + Check Availability also go
+     full width: Extra Mattress's hint is a dynamic sentence (occupancy/
+     venue messaging) that wraps to several lines in a half column, and a
+     full-width button is a bigger, easier mobile tap target anyway.
+     Keeping this an even-sized set means Check-In/Check-Out Date + Time
+     still line up as pairs on the rows between them. */
   .form-grid > .field:nth-child(1),
-  .form-grid > .field:nth-child(2) { grid-column: 1 / -1; }
+  .form-grid > .field:nth-child(2),
+  .form-grid > .field:nth-child(7),
+  .form-grid > .field:nth-child(8) { grid-column: 1 / -1; }
+
+  #bookingSection .btn-outline { width: 100%; }
 
   /* 16px keeps iOS Safari from zooming the page in on field focus */
   .field input,
