@@ -301,11 +301,13 @@ function updateMattressAvailability(room, guests) {
 
   input.disabled = !atMaxOccupancy;
 
-  // Extra Mattress qty is capped at the room's max guest occupancy — an
-  // overflow allowance on top of the max, not an unlimited add-on.
+  // Extra Mattress qty is capped at (max occupancy − included guests) — an
+  // overflow allowance on top of what's already included, not an unlimited
+  // add-on or the full max-occupancy figure itself.
+  const mattressCap = room ? Math.max(0, room.maxGuests - room.includedGuests) : 0;
   if (room) {
-    input.max = room.maxGuests;
-    if (Number(input.value) > room.maxGuests) input.value = room.maxGuests;
+    input.max = mattressCap;
+    if (Number(input.value) > mattressCap) input.value = mattressCap;
   } else {
     input.removeAttribute('max');
   }
@@ -316,10 +318,10 @@ function updateMattressAvailability(room, guests) {
   } else if (!atMaxOccupancy) {
     input.value = 0;
     hint.textContent = room
-      ? `PHP ${MATTRESS_FEE_PER_UNIT} per mattress, up to ${room.maxGuests}. Available once Number of Guests reaches this room's max occupancy (${room.maxGuests}).`
+      ? `PHP ${MATTRESS_FEE_PER_UNIT} per mattress, up to ${mattressCap}. Available once Number of Guests reaches this room's max occupancy (${room.maxGuests}).`
       : `PHP ${MATTRESS_FEE_PER_UNIT} per mattress. Select a room and reach its max occupancy to enable.`;
   } else {
-    hint.textContent = `PHP ${MATTRESS_FEE_PER_UNIT} per mattress, up to ${room.maxGuests}.`;
+    hint.textContent = `PHP ${MATTRESS_FEE_PER_UNIT} per mattress, up to ${mattressCap}.`;
   }
 }
 
@@ -438,9 +440,12 @@ async function onSubmitReservation(e) {
     showAlert(`${room.roomType} allows a maximum of ${room.maxGuests} guests.`, 'error');
     return;
   }
-  if (room && Number(f.mattressQty) > room.maxGuests) {
-    showAlert(`Extra Mattress is limited to ${room.maxGuests} for ${room.roomType}.`, 'error');
-    return;
+  if (room) {
+    const mattressCap = Math.max(0, room.maxGuests - room.includedGuests);
+    if (Number(f.mattressQty) > mattressCap) {
+      showAlert(`Extra Mattress is limited to ${mattressCap} for ${room.roomType}.`, 'error');
+      return;
+    }
   }
 
   const submitBtn = document.getElementById('submitBtn');
