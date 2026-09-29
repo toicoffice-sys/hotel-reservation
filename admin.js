@@ -5,6 +5,7 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbysMtfkO4-tuzx-dK_Cv
 
 const TOKEN_KEY = 'dlsl_hotel_admin_token';
 const EMAIL_KEY = 'dlsl_hotel_admin_email';
+const SUPER_ADMIN_ROLE = 'Super Admin';
 
 // See common.js's navigateTop for why this can't be a plain relative
 // window.location assignment inside the Apps Script deployment.
@@ -18,6 +19,7 @@ let pendingEmail = '';
 let admins = [];
 let usersLoaded = false;
 let auditLoaded = false;
+let currentRole = '';
 
 const RESERVATIONS_PAGE_SIZE = 10;
 let reservationsPage = 1;
@@ -135,6 +137,7 @@ function bindLoginEvents() {
       }
       localStorage.setItem(TOKEN_KEY, result.token);
       localStorage.setItem(EMAIL_KEY, result.email);
+      applyRole(result.role);
       applyReservations(result.reservations);
       showDashboard(result.email);
     } catch (err) {
@@ -159,6 +162,19 @@ function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+// Cosmetic only — the server enforces Super Admin on every user-management
+// and audit-log call. This just hides tabs a regular Admin can't use.
+function applyRole(role) {
+  currentRole = role || '';
+  const isSuper = currentRole === SUPER_ADMIN_ROLE;
+  ['users', 'auditlog'].forEach(tab => {
+    const btn = document.querySelector(`.admin-tab-btn[data-tab="${tab}"]`);
+    if (btn) btn.hidden = !isSuper;
+  });
+  const activeBtn = document.querySelector('.admin-tab-btn.active');
+  if (!isSuper && activeBtn && activeBtn.hidden) switchTab('reservations');
+}
+
 function applyReservations(list) {
   reservations = list;
   reservationsPage = 1;
@@ -178,6 +194,7 @@ async function loadReservations(token) {
       loginAlert(result.error || 'Session expired. Please sign in again.', 'error');
       return false;
     }
+    applyRole(result.role);
     applyReservations(result.reservations);
     return true;
   } catch (err) {

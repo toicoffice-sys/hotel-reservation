@@ -8,6 +8,10 @@
 var ADMIN_EMAILS = ['toic.pm@dlsl.edu.ph'];
 var OTP_TTL_SECONDS = 5 * 60;
 var SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+var OTP_MAX_ATTEMPTS = 5;
+
+var ADMIN_ROLES = ['Admin', 'Super Admin'];
+var SUPER_ADMIN_ROLE = 'Super Admin';
 
 var ADMIN_HEADERS = ['Email', 'Role', 'Added By', 'Added At', 'Status'];
 var DEFAULT_ADMINS = ADMIN_EMAILS.map(function (e) {
@@ -72,13 +76,13 @@ function doGet(e) {
       case 'getAvailabilityCalendar':
         return jsonOutput(getAvailabilityCalendar(e.parameter.roomType, e.parameter.month));
       case 'listReservations':
-        requireSession_(e.parameter.token);
-        return jsonOutput({ ok: true, reservations: getReservations() });
+        var listSession = requireSession_(e.parameter.token);
+        return jsonOutput({ ok: true, role: listSession.role, reservations: getReservations() });
       case 'listAdmins':
-        requireSession_(e.parameter.token);
+        requireSuperAdmin_(e.parameter.token);
         return jsonOutput({ ok: true, admins: getAdmins_() });
       case 'listAuditLog':
-        requireSession_(e.parameter.token);
+        requireSuperAdmin_(e.parameter.token);
         return jsonOutput({ ok: true, logs: getAuditLog_() });
       case 'requestOtp':
         return jsonOutput(requestOtp(e.parameter.email));
@@ -149,13 +153,13 @@ function doPost(e) {
           body.reservationId, body.newStatus, body.adminRemarks, statusSession.email
         ));
       case 'addAdmin':
-        var addSession = requireSession_(body.token);
+        var addSession = requireSuperAdmin_(body.token);
         return jsonOutput(addAdmin(body.email, body.role, addSession.email));
       case 'removeAdmin':
-        var removeSession = requireSession_(body.token);
+        var removeSession = requireSuperAdmin_(body.token);
         return jsonOutput(removeAdmin(body.email, removeSession.email));
       case 'resyncRoomDefaults':
-        var resyncSession = requireSession_(body.token);
+        var resyncSession = requireSuperAdmin_(body.token);
         return jsonOutput(resyncRoomDefaults(resyncSession.email));
       case 'submitContactInquiry':
         return jsonOutput(submitContactInquiry(body));
@@ -237,7 +241,7 @@ function getAdmins_() {
     .map(function (row) {
       return {
         email: String(row[0]).trim().toLowerCase(),
-        role: row[1] || 'Admin',
+        role: String(row[1] || 'Admin').trim(),
         addedBy: row[2] || '',
         addedAt: row[3] instanceof Date ? Utilities.formatDate(row[3], tz, 'yyyy-MM-dd HH:mm') : row[3],
         status: row[4] || 'Active'
@@ -247,6 +251,17 @@ function getAdmins_() {
 
 // Source of truth for who can request an OTP — the Admins sheet, seeded from
 // ADMIN_EMAILS on first run and editable afterward via addAdmin/removeAdmin.
+// The caller's current Active row in the Admins sheet, or null. Re-read on
+// every request so removals and role changes take effect immediately.
+function getActiveAdmin_(email) {
+  email = String(email || '').trim().toLowerCase();
+  var admins = getAdmins_();
+  for (var i = 0; i < admins.length; i++) {
+    if (admins[i].email === email && admins[i].status === 'Active') return admins[i];
+  }
+  return null;
+}
+
 function getActiveAdminEmails_() {
   return getAdmins_()
     .filter(function (a) { return a.status === 'Active'; })
@@ -255,8 +270,12 @@ function getActiveAdminEmails_() {
 
 function addAdmin(email, role, actorEmail) {
   email = String(email || '').trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email)) {
     return { ok: false, error: 'Enter a valid email address.' };
+  }
+  role = String(role || 'Admin').trim();
+  if (ADMIN_ROLES.indexOf(role) === -1) {
+    return { ok: false, error: 'Invalid role.' };
   }
   var sheet = getAdminsSheet_();
   var admins = getAdmins_();
@@ -270,11 +289,11 @@ function addAdmin(email, role, actorEmail) {
   if (existingIndex !== -1) {
     // Reactivate a previously removed admin instead of duplicating the row.
     var rowNum = existingIndex + 2;
-    sheet.getRange(rowNum, 2, 1, 4).setValues([[role || 'Admin', actorEmail || '', new Date(), 'Active']]);
+    sheet.getRange(rowNum, 2, 1, 4).setValues([[role, actorEmail || '', new Date(), 'Active']]);
   } else {
-    sheet.appendRow([email, role || 'Admin', actorEmail || '', new Date(), 'Active']);
+    sheet.appendRow([email, role, actorEmail || '', new Date(), 'Active']);
   }
-  logAudit_(actorEmail, 'Admin Added', email);
+  logAudit_(actorEmail, 'Admin Added', email + ' (' + role + ')');
   return { ok: true };
 }
 
@@ -295,6 +314,12 @@ function removeAdmin(email, actorEmail) {
   }
   if (activeCount <= 1) {
     return { ok: false, error: 'At least one active admin is required.' };
+  }
+  var activeSuperCount = admins.filter(function (a) {
+    return a.status === 'Active' && a.role === SUPER_ADMIN_ROLE;
+  }).length;
+  if (admins[targetIndex].role === SUPER_ADMIN_ROLE && activeSuperCount <= 1) {
+    return { ok: false, error: 'At least one active Super Admin is required.' };
   }
   var sheet = getAdminsSheet_();
   sheet.getRange(targetIndex + 2, 5).setValue('Inactive');
@@ -1110,7 +1135,9 @@ function requestOtp(email) {
     return { ok: false, error: 'This email is not authorized for admin access.' };
   }
   var code = String(Math.floor(100000 + Math.random() * 900000));
-  CacheService.getScriptCache().put('otp_' + email, code, OTP_TTL_SECONDS);
+  var otpCache = CacheService.getScriptCache();
+  otpCache.put('otp_' + email, code, OTP_TTL_SECONDS);
+  otpCache.remove('otp_fail_' + email);
   MailApp.sendEmail({
     to: email,
     subject: 'Your DLSL Guest House admin login code',
@@ -1124,11 +1151,31 @@ function verifyOtp(email, code) {
   code = String(code || '').trim();
   var cache = CacheService.getScriptCache();
   var key = 'otp_' + email;
+  var failKey = 'otp_fail_' + email;
   var stored = cache.get(key);
-  if (!stored || stored !== code) {
+  if (!stored) {
+    return { ok: false, error: 'Invalid or expired code.' };
+  }
+  if (stored !== code) {
+    // Burn the code after OTP_MAX_ATTEMPTS wrong guesses so a 6-digit code
+    // can't be brute-forced within its 5-minute lifetime.
+    var fails = Number(cache.get(failKey) || 0) + 1;
+    if (fails >= OTP_MAX_ATTEMPTS) {
+      cache.remove(key);
+      cache.remove(failKey);
+      logAudit_(email, 'Login Locked', 'Too many invalid OTP attempts');
+      return { ok: false, error: 'Too many invalid attempts. Please request a new code.' };
+    }
+    cache.put(failKey, String(fails), OTP_TTL_SECONDS);
     return { ok: false, error: 'Invalid or expired code.' };
   }
   cache.remove(key);
+  cache.remove(failKey);
+
+  var admin = getActiveAdmin_(email);
+  if (!admin) {
+    return { ok: false, error: 'This email is not authorized for admin access.' };
+  }
 
   var token = Utilities.getUuid();
   var sessions = loadSessions_();
@@ -1137,7 +1184,7 @@ function verifyOtp(email, code) {
   logAudit_(email, 'Login', 'Admin logged in');
   // Bundled with the reservations list so the dashboard can render immediately
   // after login instead of waiting on a second round trip.
-  return { ok: true, token: token, email: email, reservations: getReservations() };
+  return { ok: true, token: token, email: email, role: admin.role, reservations: getReservations() };
 }
 
 function validateSession_(token) {
@@ -1145,12 +1192,22 @@ function validateSession_(token) {
   var sessions = loadSessions_();
   var s = sessions[token];
   if (!s || s.expiresAt < Date.now()) return { ok: false };
-  return { ok: true, email: s.email };
+  // A session only lives as long as the admin's Active row — removing an
+  // admin revokes their existing tokens too, not just future logins.
+  var admin = getActiveAdmin_(s.email);
+  if (!admin) return { ok: false };
+  return { ok: true, email: s.email, role: admin.role };
 }
 
 function requireSession_(token) {
   var v = validateSession_(token);
   if (!v.ok) throw new Error('Not authenticated.');
+  return v;
+}
+
+function requireSuperAdmin_(token) {
+  var v = requireSession_(token);
+  if (v.role !== SUPER_ADMIN_ROLE) throw new Error('Super Admin access required.');
   return v;
 }
 
