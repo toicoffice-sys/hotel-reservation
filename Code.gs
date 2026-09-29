@@ -121,34 +121,31 @@ function doGet(e) {
   try {
     switch (action) {
       case 'ping':
-        return jsonOutput({ ok: true, status: 'online', time: new Date().toISOString() });
+        return jsonOutput_({ ok: true, status: 'online', time: new Date().toISOString() });
       case 'getRooms':
-        return jsonOutput({ ok: true, rooms: getRooms() });
+        return jsonOutput_({ ok: true, rooms: getRooms_() });
       case 'checkAvailability':
-        return jsonOutput(checkAvailability(
+        return jsonOutput_(checkAvailability_(
           e.parameter.roomType, e.parameter.checkIn, e.parameter.checkInTime,
           e.parameter.checkOut, e.parameter.checkOutTime
         ));
       case 'getAvailabilityCalendar':
-        return jsonOutput(getAvailabilityCalendar(e.parameter.roomType, e.parameter.month));
+        return jsonOutput_(getAvailabilityCalendar_(e.parameter.roomType, e.parameter.month));
       case 'listReservations':
-        var listSession = requireSession_(e.parameter.token);
-        return jsonOutput({ ok: true, role: listSession.role, reservations: getReservations() });
+        return jsonOutput_(listReservations_(e.parameter.token));
       case 'listAdmins':
-        requireSuperAdmin_(e.parameter.token);
-        return jsonOutput({ ok: true, admins: getAdmins_() });
+        return jsonOutput_(listAdmins_(e.parameter.token));
       case 'listAuditLog':
-        requireSuperAdmin_(e.parameter.token);
-        return jsonOutput({ ok: true, logs: getAuditLog_() });
+        return jsonOutput_(listAuditLog_(e.parameter.token));
       case 'requestOtp':
-        return jsonOutput(requestOtp(e.parameter.email));
+        return jsonOutput_(requestOtp_(e.parameter.email));
       case 'getGuestReservation':
-        return jsonOutput(getGuestReservation(e.parameter.reservationId, e.parameter.token));
+        return jsonOutput_(getGuestReservation_(e.parameter.reservationId, e.parameter.token));
       default:
-        return jsonOutput({ ok: false, error: 'Unknown or missing action.' });
+        return jsonOutput_({ ok: false, error: 'Unknown or missing action.' });
     }
   } catch (err) {
-    return jsonOutput({ ok: false, error: String(err.message || err) });
+    return jsonOutput_({ ok: false, error: String(err.message || err) });
   }
 }
 
@@ -189,7 +186,7 @@ function renderPage_(e) {
 }
 
 // Used by Index.html/Rooms.html/Admin.html templates to inline Styles.html/*Script.html.
-function include(filename) {
+function include_(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
@@ -198,43 +195,37 @@ function doPost(e) {
   try {
     body = JSON.parse(e.postData.contents);
   } catch (err) {
-    return jsonOutput({ ok: false, error: 'Invalid JSON body.' });
+    return jsonOutput_({ ok: false, error: 'Invalid JSON body.' });
   }
   try {
     switch (body.action) {
       case 'submitReservation':
-        return jsonOutput(submitReservation(body));
+        return jsonOutput_(submitReservation_(body));
       case 'verifyOtp':
-        return jsonOutput(verifyOtp(body.email, body.code));
+        return jsonOutput_(verifyOtp_(body.email, body.code));
       case 'updateReservationStatus':
-        var statusSession = requireSession_(body.token);
-        return jsonOutput(updateReservationStatus(
-          body.reservationId, body.newStatus, body.adminRemarks, statusSession.email
-        ));
+        return jsonOutput_(updateReservationStatus_(body.token, body.reservationId, body.newStatus, body.adminRemarks));
       case 'addAdmin':
-        var addSession = requireSuperAdmin_(body.token);
-        return jsonOutput(addAdmin(body.email, body.role, addSession.email));
+        return jsonOutput_(addAdmin_(body.token, body.email, body.role));
       case 'removeAdmin':
-        var removeSession = requireSuperAdmin_(body.token);
-        return jsonOutput(removeAdmin(body.email, removeSession.email));
+        return jsonOutput_(removeAdmin_(body.token, body.email));
       case 'resyncRoomDefaults':
-        var resyncSession = requireSuperAdmin_(body.token);
-        return jsonOutput(resyncRoomDefaults(resyncSession.email));
+        return jsonOutput_(resyncRoomDefaults_(body.token));
       case 'submitContactInquiry':
-        return jsonOutput(submitContactInquiry(body));
+        return jsonOutput_(submitContactInquiry_(body));
       case 'submitProofOfPayment':
-        return jsonOutput(submitProofOfPayment(body));
+        return jsonOutput_(submitProofOfPayment_(body));
       case 'guestCancelReservation':
-        return jsonOutput(guestCancelReservation(body.reservationId, body.token));
+        return jsonOutput_(guestCancelReservation_(body.reservationId, body.token));
       default:
-        return jsonOutput({ ok: false, error: 'Unknown or missing action.' });
+        return jsonOutput_({ ok: false, error: 'Unknown or missing action.' });
     }
   } catch (err) {
-    return jsonOutput({ ok: false, error: String(err.message || err) });
+    return jsonOutput_({ ok: false, error: String(err.message || err) });
   }
 }
 
-function jsonOutput(obj) {
+function jsonOutput_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -327,7 +318,11 @@ function getActiveAdminEmails_() {
     .map(function (a) { return a.email; });
 }
 
-function addAdmin(email, role, actorEmail) {
+// Privileged operations authorize themselves against the session token —
+// never a caller-supplied identity — so they stay safe whichever path
+// reaches them, not just the doGet/doPost dispatcher.
+function addAdmin_(token, email, role) {
+  var actorEmail = requireSuperAdmin_(token).email;
   email = String(email || '').trim().toLowerCase();
   if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email)) {
     return { ok: false, error: 'Enter a valid email address.' };
@@ -357,9 +352,9 @@ function addAdmin(email, role, actorEmail) {
   return { ok: true };
 }
 
-function removeAdmin(email, actorEmail) {
+function removeAdmin_(token, email) {
+  var actorEmail = requireSuperAdmin_(token).email;
   email = String(email || '').trim().toLowerCase();
-  actorEmail = String(actorEmail || '').trim().toLowerCase();
   if (email === actorEmail) {
     return { ok: false, error: 'You cannot remove your own admin access.' };
   }
@@ -394,6 +389,16 @@ function logAudit_(actorEmail, action, details) {
   getAuditLogSheet_().appendRow([new Date(), actorEmail || '', action, details || '']);
 }
 
+function listAdmins_(token) {
+  requireSuperAdmin_(token);
+  return { ok: true, admins: getAdmins_() };
+}
+
+function listAuditLog_(token) {
+  requireSuperAdmin_(token);
+  return { ok: true, logs: getAuditLog_() };
+}
+
 function getAuditLog_() {
   var sheet = getAuditLogSheet_();
   var lastRow = sheet.getLastRow();
@@ -416,7 +421,7 @@ function getAuditLog_() {
 
 // ── Rooms (master data) ─────────────────────────────────────────────────────
 
-function getRooms() {
+function getRooms_() {
   var sheet = getRoomsSheet_();
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
@@ -435,7 +440,7 @@ function getRooms() {
 }
 
 function getRoomByType_(roomType) {
-  var rooms = getRooms();
+  var rooms = getRooms_();
   for (var i = 0; i < rooms.length; i++) {
     if (rooms[i].roomType === roomType) return rooms[i];
   }
@@ -449,7 +454,8 @@ function getRoomByType_(roomType) {
 // Rate and Inventory are left alone (the sheet is the source of truth there —
 // an admin may have adjusted a price or taken a unit out of service by hand,
 // and this shouldn't silently revert that).
-function resyncRoomDefaults(actorEmail) {
+function resyncRoomDefaults_(token) {
+  var actorEmail = requireSuperAdmin_(token).email;
   var sheet = getRoomsSheet_();
   var idx = {};
   ROOM_HEADERS.forEach(function (h, i) { idx[h] = i; });
@@ -476,7 +482,14 @@ function resyncRoomDefaults(actorEmail) {
 
 // ── Reservations: read ──────────────────────────────────────────────────────
 
-function getReservations() {
+function listReservations_(token) {
+  var session = requireSession_(token);
+  return { ok: true, role: session.role, reservations: getReservations_(token) };
+}
+
+// Full reservation records (all columns, guest PII) — session required.
+function getReservations_(token) {
+  requireSession_(token);
   var sheet = getReservationsSheet_();
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
@@ -499,15 +512,15 @@ function getReservations() {
 
 // ── Reservations: availability & submission ─────────────────────────────────
 
-function checkAvailability(roomType, checkIn, checkInTime, checkOut, checkOutTime) {
+function checkAvailability_(roomType, checkIn, checkInTime, checkOut, checkOutTime) {
   if (!roomType || !checkIn || !checkOut) {
     return { ok: false, error: 'Please complete room type, check-in, and check-out schedule.' };
   }
   var room = getRoomByType_(roomType);
   if (!room) return { ok: false, error: 'Unknown room type.' };
 
-  var reqStart = parseDateTime(checkIn, checkInTime || STANDARD_CHECKIN_TIME);
-  var reqEnd = parseDateTime(checkOut, checkOutTime || STANDARD_CHECKIN_TIME);
+  var reqStart = parseDateTime_(checkIn, checkInTime || STANDARD_CHECKIN_TIME);
+  var reqEnd = parseDateTime_(checkOut, checkOutTime || STANDARD_CHECKIN_TIME);
   if (!(reqEnd > reqStart)) {
     return { ok: false, error: 'Check-out date/time must be later than check-in date/time.' };
   }
@@ -541,8 +554,8 @@ function countOverlappingBookings_(roomType, reqStart, reqEnd, excludeReservatio
     var status = row[idx['Status']];
     if (status === 'Rejected' || status === 'Declined') return;
 
-    var existStart = parseSheetDateTime(row[idx['Check-In']], row[idx['Check-In Time']]);
-    var existEnd = parseSheetDateTime(row[idx['Check-Out']], row[idx['Check-Out Time']]);
+    var existStart = parseSheetDateTime_(row[idx['Check-In']], row[idx['Check-In Time']]);
+    var existEnd = parseSheetDateTime_(row[idx['Check-Out']], row[idx['Check-Out Time']]);
     if (existStart < reqEnd && existEnd > reqStart) count++;
   });
   return count;
@@ -558,7 +571,7 @@ function headerIndex_() {
 // booking form can render a small calendar of open/limited/full days before
 // the guest picks specific dates. monthStr is 'yyyy-MM'; defaults to the
 // current month. Public (no session) — same trust level as checkAvailability.
-function getAvailabilityCalendar(roomType, monthStr) {
+function getAvailabilityCalendar_(roomType, monthStr) {
   var room = getRoomByType_(roomType);
   if (!room) return { ok: false, error: 'Unknown room type.' };
 
@@ -596,8 +609,8 @@ function getAvailabilityCalendar(roomType, monthStr) {
       var status = row[idx['Status']];
       if (status === 'Rejected' || status === 'Declined') return;
 
-      var existStart = parseSheetDateTime(row[idx['Check-In']], row[idx['Check-In Time']]);
-      var existEnd = parseSheetDateTime(row[idx['Check-Out']], row[idx['Check-Out Time']]);
+      var existStart = parseSheetDateTime_(row[idx['Check-In']], row[idx['Check-In Time']]);
+      var existEnd = parseSheetDateTime_(row[idx['Check-Out']], row[idx['Check-Out Time']]);
       days.forEach(function (day) {
         if (existStart < day.end && existEnd > day.start) day.bookedCount++;
       });
@@ -617,7 +630,7 @@ function getAvailabilityCalendar(roomType, monthStr) {
   return { ok: true, roomType: roomType, inventory: room.inventory, year: year, month: month + 1, days: result };
 }
 
-function submitReservation(body) {
+function submitReservation_(body) {
   body = body || {};
   body.fullName = cleanText_(body.fullName, 120);
   body.email = cleanText_(body.email, 254);
@@ -628,6 +641,9 @@ function submitReservation(body) {
   body.specialRequests = cleanText_(body.specialRequests, 1000);
   if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
     return { ok: false, error: 'Enter a valid email address.' };
+  }
+  if (body.fullName && !isPlainName_(body.fullName)) {
+    return { ok: false, error: 'Please enter your full name using letters only.' };
   }
 
   var required = ['fullName', 'email', 'phone', 'checkIn', 'checkOut', 'roomType', 'guests'];
@@ -657,8 +673,13 @@ function submitReservation(body) {
 
   var checkInTime = body.checkInTime || STANDARD_CHECKIN_TIME;
   var checkOutTime = body.checkOutTime || STANDARD_CHECKIN_TIME;
-  var start = parseDateTime(body.checkIn, checkInTime);
-  var end = parseDateTime(body.checkOut, checkOutTime);
+  var dateRe = /^\d{4}-\d{2}-\d{2}$/, timeRe = /^\d{2}:\d{2}(:\d{2})?$/;
+  if (!dateRe.test(body.checkIn) || !dateRe.test(body.checkOut) ||
+      !timeRe.test(checkInTime) || !timeRe.test(checkOutTime)) {
+    return { ok: false, error: 'Please choose valid check-in and check-out dates and times.' };
+  }
+  var start = parseDateTime_(body.checkIn, checkInTime);
+  var end = parseDateTime_(body.checkOut, checkOutTime);
   if (!(end > start)) {
     return { ok: false, error: 'Check-out date/time must be later than check-in date/time.' };
   }
@@ -669,19 +690,32 @@ function submitReservation(body) {
     if (!proof.ok) return { ok: false, error: proof.error };
   }
 
+  var buckets = [{ name: 'reservationPerEmail', id: body.email }, { name: 'reservationGlobal' }];
+  if (proof) buckets.push({ name: 'proofUploadGlobal' });
+  if (!takeRateLimit_(buckets)) {
+    return { ok: false, error: 'Too many reservation requests right now. Please try again later or contact the front desk.' };
+  }
+
   var pricing = computePricing_(room, start, end, checkOutTime, guests, mattressQty);
   var sheet = getReservationsSheet_();
+
+  // The Drive upload happens before the booking lock is taken (and is
+  // renamed / cleaned up afterwards) so slow uploads never hold the lock.
+  var proofFileId = null;
+  if (proof) proofFileId = storeProofBlob_(proof.blob).id;
 
   // The availability re-check and the row append must be atomic, otherwise
   // two concurrent submissions for the last unit can both pass the check.
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) {
+    discardProofFile_(proofFileId);
     return { ok: false, error: 'The reservation system is busy. Please try again in a moment.' };
   }
   var reservationId;
   try {
     var overlapping = countOverlappingBookings_(body.roomType, start, end, null);
     if (overlapping >= room.inventory) {
+      discardProofFile_(proofFileId);
       return { ok: false, error: room.roomType + ' is fully booked for the selected date and time.' };
     }
 
@@ -689,11 +723,7 @@ function submitReservation(body) {
     while (findReservationRowNum_(sheet, 'RES-' + idNum) !== -1) idNum++;
     reservationId = 'RES-' + idNum;
 
-    var proofOfPaymentUrl = '';
-    if (proof) {
-      proof.blob.setName(proof.blob.getName().replace(/^RES/, reservationId));
-      proofOfPaymentUrl = storeProofBlob_(proof.blob);
-    }
+    var proofOfPaymentUrl = proofFileId ? driveFileUrl_(proofFileId) : '';
 
     sheet.appendRow([
       reservationId,
@@ -723,11 +753,20 @@ function submitReservation(body) {
       body.guestsCompany || ''
     ]);
     SpreadsheetApp.flush();
+  } catch (err) {
+    discardProofFile_(proofFileId);
+    throw err;
   } finally {
     lock.releaseLock();
   }
 
-  sendReservationEmail(body.email, {
+  if (proofFileId) {
+    try {
+      Drive.Files.update({ name: proof.blob.getName().replace(/^RES/, reservationId) }, proofFileId);
+    } catch (err) { console.error('Proof rename failed: ' + err); }
+  }
+
+  if (guestMailAllowed_()) sendReservationEmail_(body.email, {
     reservationId: reservationId,
     fullName: body.fullName,
     roomType: room.roomType,
@@ -747,17 +786,67 @@ function submitReservation(body) {
   };
 }
 
+// Drive access goes through the Advanced Drive service (v3) rather than
+// DriveApp so the script can run on the narrow drive.file scope — it only
+// ever sees the folder and files it created itself (see appsscript.json).
+var PROOF_FOLDER_NAME = 'DLSL Chez Rafael — Proof of Payment';
+
+function driveFileUrl_(id) {
+  return 'https://drive.google.com/file/d/' + id + '/view';
+}
+
 // Stores a validated proof-of-payment blob (see buildProofBlob_) in the
 // dedicated Drive folder. The file stays private: admins reach it through
 // the folder's viewer list (syncProofFolderViewers_), never a public link.
 function storeProofBlob_(blob) {
-  var folder = getProofOfPaymentFolder_();
-  var file = folder.createFile(blob);
-  file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
-  return file.getUrl();
+  var folderId = getProofOfPaymentFolderId_();
+  var file = Drive.Files.create({ name: blob.getName(), mimeType: blob.getContentType(), parents: [folderId] },
+    blob, { fields: 'id' });
+  makeDriveItemPrivate_(file.id);
+  return { id: file.id, url: driveFileUrl_(file.id) };
 }
 
-// Drive access needs a one-time manual authorization (DriveApp.createFolder
+function discardProofFile_(fileId) {
+  if (!fileId) return;
+  try { Drive.Files.remove(fileId); } catch (err) { console.error('Proof cleanup failed: ' + err); }
+}
+
+// Strips any link-based ("anyone" / whole-domain) sharing from a file or folder.
+function makeDriveItemPrivate_(id) {
+  var perms = Drive.Permissions.list(id, { fields: 'permissions(id,type,role,emailAddress)' }).permissions || [];
+  perms.forEach(function (perm) {
+    if (perm.type === 'anyone' || perm.type === 'domain') Drive.Permissions.remove(id, perm.id);
+  });
+  return perms;
+}
+
+// Run once from the Apps Script editor (Run ▸ authorizeAndCheck) after the
+// OAuth scopes change: triggers the consent screen for the narrowed scopes,
+// then confirms the sheet, the proof folder and its files are reachable
+// under drive.file and locks the folder down. Safe to re-run.
+function authorizeAndCheck() {
+  requireScriptOwner_();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  console.log('Spreadsheet OK: ' + ss.getName());
+  console.log('Mail quota remaining today: ' + MailApp.getRemainingDailyQuota());
+  console.log('Web app URL: ' + ScriptApp.getService().getUrl());
+
+  var props = PropertiesService.getScriptProperties();
+  var before = props.getProperty('PROOF_OF_PAYMENT_FOLDER_ID');
+  var folderId = getProofOfPaymentFolderId_();
+  console.log(before === folderId
+    ? 'Existing proof folder reachable: ' + folderId
+    : 'Proof folder (re)created: ' + folderId + (before ? ' — previous folder ' + before + ' was NOT reachable' : ''));
+
+  var files = Drive.Files.list({ q: "'" + folderId + "' in parents and trashed = false", fields: 'files(id)', pageSize: 100 }).files || [];
+  console.log('Proof files visible in folder: ' + files.length);
+
+  props.deleteProperty('PROOF_LOCKDOWN_V1');
+  lockDownProofFilesOnce_();
+  console.log('Lockdown done; folder shared with: ' + getActiveAdminEmails_().join(', '));
+}
+
+// Drive access needs a one-time manual authorization (Drive.Files.create
 // fails with "Wala kang pahintulot..." until that's done — see the Apps
 // Script editor's Run button). Guests shouldn't be blocked by that: if Drive
 // isn't available yet, email the receipt straight to the admins instead, so
@@ -765,7 +854,7 @@ function storeProofBlob_(blob) {
 // giving a real link automatically — no further code change needed.
 function saveOrEmailProofOfPayment_(blob, reservationId, fullName, roomType) {
   try {
-    return storeProofBlob_(blob);
+    return storeProofBlob_(blob).url;
   } catch (err) {
     MailApp.sendEmail({
       to: getActiveAdminEmails_().join(','),
@@ -783,47 +872,48 @@ function saveOrEmailProofOfPayment_(blob, reservationId, fullName, roomType) {
   }
 }
 
-function getProofOfPaymentFolder_() {
+function getProofOfPaymentFolderId_() {
   var props = PropertiesService.getScriptProperties();
   var folderId = props.getProperty('PROOF_OF_PAYMENT_FOLDER_ID');
   if (folderId) {
     try {
-      return DriveApp.getFolderById(folderId);
+      var existing = Drive.Files.get(folderId, { fields: 'id,trashed' });
+      if (!existing.trashed) return existing.id;
     } catch (err) {
-      // Folder was deleted/moved out from under us — fall through and remake it.
+      // Folder was deleted/moved, or isn't reachable under drive.file — remake it.
     }
   }
-  var folder = DriveApp.createFolder('DLSL Chez Rafael — Proof of Payment');
-  props.setProperty('PROOF_OF_PAYMENT_FOLDER_ID', folder.getId());
-  syncProofFolderViewers_(folder);
-  return folder;
+  var folder = Drive.Files.create({ name: PROOF_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' },
+    null, { fields: 'id' });
+  props.setProperty('PROOF_OF_PAYMENT_FOLDER_ID', folder.id);
+  syncProofFolderViewers_(folder.id);
+  return folder.id;
 }
 
 // Keeps the proof-of-payment folder shared with exactly the Active admins
 // (plus the owner). Files inside inherit this, so no public links needed.
-function syncProofFolderViewers_(folder) {
-  folder = folder || getProofOfPaymentFolder_();
-  folder.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
-  var owner = String(folder.getOwner() ? folder.getOwner().getEmail() : '').toLowerCase();
+function syncProofFolderViewers_(folderId) {
+  folderId = folderId || getProofOfPaymentFolderId_();
+  var perms = makeDriveItemPrivate_(folderId);
   var active = getActiveAdminEmails_();
-  var current = folder.getViewers().concat(folder.getEditors())
-    .map(function (u) { return String(u.getEmail() || '').toLowerCase(); });
+  var shared = [];
+  perms.forEach(function (perm) {
+    if (perm.type !== 'user' || perm.role === 'owner') return;
+    var email = String(perm.emailAddress || '').toLowerCase();
+    if (active.indexOf(email) === -1) {
+      try { Drive.Permissions.remove(folderId, perm.id); } catch (err) {}
+    } else {
+      shared.push(email);
+    }
+  });
+  var ownerEmails = perms.filter(function (perm) { return perm.role === 'owner'; })
+    .map(function (perm) { return String(perm.emailAddress || '').toLowerCase(); });
   active.forEach(function (email) {
-    if (email !== owner && current.indexOf(email) === -1) {
-      try { folder.addViewer(email); } catch (err) { /* not a Google account */ }
-    }
-  });
-  folder.getViewers().forEach(function (u) {
-    var email = String(u.getEmail() || '').toLowerCase();
-    if (email && email !== owner && active.indexOf(email) === -1) {
-      try { folder.removeViewer(email); } catch (err) {}
-    }
-  });
-  folder.getEditors().forEach(function (u) {
-    var email = String(u.getEmail() || '').toLowerCase();
-    if (email && email !== owner && active.indexOf(email) === -1) {
-      try { folder.removeEditor(email); } catch (err) {}
-    }
+    if (shared.indexOf(email) !== -1 || ownerEmails.indexOf(email) !== -1) return;
+    try {
+      Drive.Permissions.create({ type: 'user', role: 'reader', emailAddress: email }, folderId,
+        { sendNotificationEmail: false });
+    } catch (err) { /* not a Google account */ }
   });
 }
 
@@ -845,14 +935,18 @@ function syncProofFolderViewersSafe_() {
 function lockDownProofFilesOnce_() {
   var props = PropertiesService.getScriptProperties();
   if (props.getProperty('PROOF_LOCKDOWN_V1') || !props.getProperty('PROOF_OF_PAYMENT_FOLDER_ID')) return;
-  var folder = getProofOfPaymentFolder_();
-  var files = folder.getFiles();
+  var folderId = getProofOfPaymentFolderId_();
   var count = 0;
-  while (files.hasNext()) {
-    files.next().setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
-    count++;
-  }
-  syncProofFolderViewers_(folder);
+  var pageToken;
+  do {
+    var page = Drive.Files.list({
+      q: "'" + folderId + "' in parents and trashed = false",
+      fields: 'nextPageToken, files(id)', pageSize: 100, pageToken: pageToken
+    });
+    (page.files || []).forEach(function (f) { makeDriveItemPrivate_(f.id); count++; });
+    pageToken = page.nextPageToken;
+  } while (pageToken);
+  syncProofFolderViewers_(folderId);
   props.setProperty('PROOF_LOCKDOWN_V1', new Date().toISOString());
   logAudit_('System', 'Proof files locked down', count + ' file(s) set to private');
 }
@@ -898,7 +992,9 @@ function findReservationRowNum_(sheet, reservationId) {
   return -1;
 }
 
-function updateReservationStatus(reservationId, newStatus, adminRemarks, reviewedBy) {
+function updateReservationStatus_(token, reservationId, newStatus, adminRemarks) {
+  var reviewedBy = requireSession_(token).email;
+  adminRemarks = cleanText_(adminRemarks, 1000);
   if (!reservationId || !newStatus) {
     return { ok: false, error: 'Reservation ID and new status are required.' };
   }
@@ -958,18 +1054,18 @@ function verifyReservationToken_(reservationId, token) {
 
 // Limited, token-gated view of a reservation for the guest-facing
 // upload-proof/cancel-reservation pages — deliberately returns far less
-// than the admin's getReservations() (no phone, remarks, etc.).
+// than the admin's getReservations_() (no phone, remarks, etc.).
 // Whether a guest is still inside the self-cancellation window (>= 3 full
 // days before check-in). Shared by getGuestReservation (so the page can
 // show the right UI up front) and guestCancelReservation (the authoritative
 // check at actual cancellation time).
 function isWithinGuestCancellationWindow_(row, idx) {
-  var checkInMoment = parseSheetDateTime(row[idx['Check-In']], row[idx['Check-In Time']]);
+  var checkInMoment = parseSheetDateTime_(row[idx['Check-In']], row[idx['Check-In Time']]);
   var daysUntilCheckIn = (checkInMoment.getTime() - Date.now()) / 86400000;
   return daysUntilCheckIn >= GUEST_CANCELLATION_WINDOW_DAYS;
 }
 
-function getGuestReservation(reservationId, token) {
+function getGuestReservation_(reservationId, token) {
   if (!verifyReservationToken_(reservationId, token)) {
     return { ok: false, error: 'This link is invalid or has expired.' };
   }
@@ -993,7 +1089,7 @@ function getGuestReservation(reservationId, token) {
   };
 }
 
-function submitProofOfPayment(body) {
+function submitProofOfPayment_(body) {
   var reservationId = body && body.reservationId;
   var token = body && body.token;
   if (!verifyReservationToken_(reservationId, token)) {
@@ -1015,6 +1111,9 @@ function submitProofOfPayment(body) {
 
   var proof = buildProofBlob_(body.proofOfPaymentData, body.proofOfPaymentName, reservationId);
   if (!proof.ok) return { ok: false, error: proof.error };
+  if (!takeRateLimit_([{ name: 'proofUploadPerReservation', id: reservationId }, { name: 'proofUploadGlobal' }])) {
+    return { ok: false, error: 'Too many uploads for this reservation. Please try again later.' };
+  }
 
   var fullName = sheet.getRange(rowNum, idx['Full Name'] + 1).getValue();
   var roomType = sheet.getRange(rowNum, idx['Room Type'] + 1).getValue();
@@ -1025,7 +1124,7 @@ function submitProofOfPayment(body) {
   return { ok: true, reservationId: reservationId };
 }
 
-function guestCancelReservation(reservationId, token) {
+function guestCancelReservation_(reservationId, token) {
   if (!verifyReservationToken_(reservationId, token)) {
     return { ok: false, error: 'This link is invalid or has expired.' };
   }
@@ -1103,21 +1202,21 @@ function sendCancellationEmails_(guestEmail, info) {
 
 // ── Date/time utilities ──────────────────────────────────────────────────────
 
-function parseDateTime(dateStr, timeStr) {
-  var time = normalizeTimeValue(timeStr);
+function parseDateTime_(dateStr, timeStr) {
+  var time = normalizeTimeValue_(timeStr);
   return new Date(dateStr + 'T' + time);
 }
 
-function parseSheetDateTime(dateVal, timeVal) {
+function parseSheetDateTime_(dateVal, timeVal) {
   var tz = Session.getScriptTimeZone();
   var dateStr = dateVal instanceof Date
     ? Utilities.formatDate(dateVal, tz, 'yyyy-MM-dd')
     : String(dateVal);
-  var timeStr = normalizeTimeValue(timeVal);
+  var timeStr = normalizeTimeValue_(timeVal);
   return new Date(dateStr + 'T' + timeStr);
 }
 
-function normalizeTimeValue(timeVal) {
+function normalizeTimeValue_(timeVal) {
   if (!timeVal) return STANDARD_CHECKIN_TIME;
   if (timeVal instanceof Date) {
     return Utilities.formatDate(timeVal, Session.getScriptTimeZone(), 'HH:mm:ss');
@@ -1132,7 +1231,7 @@ function normalizeTimeValue(timeVal) {
 
 // ── Email notifications ─────────────────────────────────────────────────────
 
-function sendReservationEmail(email, info) {
+function sendReservationEmail_(email, info) {
   if (!email) return;
   var subject = 'DLSL Guest House Reservation Received';
   var body = [
@@ -1223,15 +1322,20 @@ function sendStatusUpdateEmail_(email, info) {
 
 // ── Contact Us inquiries ────────────────────────────────────────────────────
 
-function submitContactInquiry(body) {
+function submitContactInquiry_(body) {
   var name = cleanText_(body && body.name, 120);
   var email = cleanText_(body && body.email, 254);
   var phone = cleanText_(body && body.phone, 40);
   var message = cleanText_(body && body.message, 3000);
 
   if (!name) return { ok: false, error: 'Please enter your name.' };
+  if (!isPlainName_(name)) return { ok: false, error: 'Please enter your name using letters only.' };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Enter a valid email address.' };
   if (!message) return { ok: false, error: 'Please enter a message.' };
+  if (!guestMailAllowed_() ||
+      !takeRateLimit_([{ name: 'contactPerEmail', id: email }, { name: 'contactGlobal' }])) {
+    return { ok: false, error: 'We could not accept your message right now. Please try again later or call the front desk.' };
+  }
 
   var recipients = getActiveAdminEmails_();
   if (!recipients.length) recipients = ADMIN_EMAILS;
@@ -1250,16 +1354,17 @@ function submitContactInquiry(body) {
 
   MailApp.sendEmail({ to: recipients.join(','), replyTo: email, subject: subject, body: bodyText });
 
+  // Fixed text only: nothing the submitter typed is echoed back, so the
+  // form can't be used to relay attacker-written mail to a third party.
   MailApp.sendEmail({
     to: email,
     subject: 'We received your message — DLSL Chez Rafael',
     body: [
-      'Dear ' + name + ',',
+      'Hello,',
       '',
       'Thank you for reaching out to DLSL Chez Rafael. We have received your message and will get back to you as soon as possible.',
       '',
-      'Your message:',
-      message,
+      'If you did not contact us, you can ignore this email.',
       '',
       'Sincerely,',
       'Chez Rafael'
@@ -1269,22 +1374,142 @@ function submitContactInquiry(body) {
   return { ok: true };
 }
 
+// ── Abuse controls: rate limits + mail-quota reserve ────────────────────────
+
+// The only public (non-_) function besides doGet/doPost is authorizeAndCheck,
+// which is meant for the editor's Run button. Refuse anyone but the script
+// owner: an anonymous caller has no active-user email at all.
+function requireScriptOwner_() {
+  var active = String(Session.getActiveUser().getEmail() || '').toLowerCase();
+  var owner = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
+  if (!active || active !== owner) throw new Error('Owner access required.');
+}
+
+// Public (anonymous) endpoints: every limit is per recipient/submitter
+// address plus a global ceiling. Apps Script exposes no caller IP, so the
+// address the mail would go to is the per-caller key. Windows are 6 h, the
+// CacheService maximum.
+var RATE_WINDOW_SECONDS = 6 * 60 * 60;
+var RATE_LIMITS = {
+  otpRequestPerEmail: 5,     // new login codes per admin address
+  otpRequestGlobal: 40,      // login-code emails, all admins
+  contactPerEmail: 2,        // Contact Us submissions per address
+  contactGlobal: 40,
+  reservationPerEmail: 5,    // booking requests per guest address
+  reservationGlobal: 150,
+  proofUploadPerReservation: 5,
+  proofUploadGlobal: 60
+};
+// Guest-triggered mail stops once the day's remaining MailApp quota falls to
+// this, so admin login codes and approval emails always have room to send.
+var MAIL_QUOTA_RESERVE = 30;
+
+function hashKey_(value) {
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(value || '').toLowerCase());
+  return bytes.map(function (b) { return ((b + 256) % 256).toString(16).padStart(2, '0'); }).join('');
+}
+
+// Counter locks are separate from the booking lock (script lock) where the
+// script is container-bound, so rate-limit bookkeeping never queues behind
+// a booking.
+function counterLock_() {
+  return LockService.getDocumentLock() || LockService.getScriptLock();
+}
+
+// Atomically consumes one unit of each named bucket; returns false (and
+// consumes nothing) if any bucket is already at its limit.
+function takeRateLimit_(buckets) {
+  var cache = CacheService.getScriptCache();
+  var lock = counterLock_();
+  if (!lock.tryLock(10000)) return false;
+  try {
+    var keys = buckets.map(function (b) { return 'rl_' + b.name + '_' + hashKey_(b.id || 'all'); });
+    var counts = keys.map(function (k) { return Number(cache.get(k) || 0); });
+    for (var i = 0; i < buckets.length; i++) {
+      if (counts[i] >= RATE_LIMITS[buckets[i].name]) return false;
+    }
+    keys.forEach(function (k, i) { cache.put(k, String(counts[i] + 1), RATE_WINDOW_SECONDS); });
+    return true;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function guestMailAllowed_() {
+  try {
+    return MailApp.getRemainingDailyQuota() > MAIL_QUOTA_RESERVE;
+  } catch (err) {
+    return false;
+  }
+}
+
+// Personal names only — letters, spaces and . , ' - — so a name can't carry
+// a link or other attacker copy into mail sent from DLSL's account.
+function isPlainName_(name) {
+  return /^[\p{L}\p{M} .,'-]{1,120}$/u.test(name);
+}
+
 // ── Admin auth: email OTP + session tokens ──────────────────────────────────
 
-function requestOtp(email) {
+// Wrong guesses are budgeted per ACCOUNT, not per code: requesting a new
+// code never resets the cumulative count. OTP_ACCOUNT_MAX_FAILS wrong codes
+// inside OTP_FAIL_WINDOW_MS locks OTP login for that address until the
+// window ends. State lives in Script Properties (durable, unlike the cache)
+// and is only ever created for real admin addresses, so it stays small.
+// The script owner can clear a lockout early with unlockAdminLogin_ from the
+// editor (or by deleting the OTP_GUARD_<hash> script property).
+var OTP_ACCOUNT_MAX_FAILS = 10;
+var OTP_FAIL_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function otpGuardKey_(email) {
+  return 'OTP_GUARD_' + hashKey_(email).slice(0, 32);
+}
+
+function readOtpGuard_(props, email) {
+  var raw = props.getProperty(otpGuardKey_(email));
+  var g = raw ? JSON.parse(raw) : null;
+  if (!g || Date.now() - g.windowStart > OTP_FAIL_WINDOW_MS) {
+    g = { windowStart: Date.now(), fails: 0, codeFails: 0 };
+  }
+  return g;
+}
+
+function isOtpLocked_(g) {
+  return g.fails >= OTP_ACCOUNT_MAX_FAILS;
+}
+
+function unlockAdminLogin_(email) {
+  PropertiesService.getScriptProperties().deleteProperty(otpGuardKey_(String(email || '').trim().toLowerCase()));
+}
+
+function requestOtp_(email) {
   email = String(email || '').trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: 'Enter a valid email address.' };
   }
-  // Same response whether or not the email is an admin, so the endpoint
-  // can't be used to enumerate the admin roster.
+  // Same response whether or not the email is an admin — or throttled or
+  // locked — so the endpoint can't be used to enumerate the admin roster.
   if (getActiveAdminEmails_().indexOf(email) === -1) {
     return { ok: true };
   }
-  var code = String(Math.floor(100000 + Math.random() * 900000));
-  var otpCache = CacheService.getScriptCache();
-  otpCache.put('otp_' + email, code, OTP_TTL_SECONDS);
-  otpCache.remove('otp_fail_' + email);
+  if (!takeRateLimit_([{ name: 'otpRequestPerEmail', id: email }, { name: 'otpRequestGlobal' }])) {
+    return { ok: true };
+  }
+
+  var props = PropertiesService.getScriptProperties();
+  var lock = counterLock_();
+  if (!lock.tryLock(10000)) return { ok: true };
+  var code;
+  try {
+    var g = readOtpGuard_(props, email);
+    if (isOtpLocked_(g)) return { ok: true };
+    code = String(100000 + secureRandomInt_(900000));
+    g.codeFails = 0; // per-code cap only; the cumulative g.fails is kept
+    props.setProperty(otpGuardKey_(email), JSON.stringify(g));
+    CacheService.getScriptCache().put('otp_' + email, code, OTP_TTL_SECONDS);
+  } finally {
+    lock.releaseLock();
+  }
   MailApp.sendEmail({
     to: email,
     subject: 'Your DLSL Guest House admin login code',
@@ -1293,31 +1518,56 @@ function requestOtp(email) {
   return { ok: true };
 }
 
-function verifyOtp(email, code) {
+// Uniform in [0, n) from a UUID's random bits rather than Math.random().
+function secureRandomInt_(n) {
+  var hex = Utilities.getUuid().replace(/-/g, '').slice(0, 12);
+  return parseInt(hex, 16) % n;
+}
+
+function verifyOtp_(email, code) {
   email = String(email || '').trim().toLowerCase();
   code = String(code || '').trim();
+  var generic = { ok: false, error: 'Invalid or expired code.' };
+  if (!/^\d{6}$/.test(code)) return generic;
+
   var cache = CacheService.getScriptCache();
   var key = 'otp_' + email;
-  var failKey = 'otp_fail_' + email;
-  var stored = cache.get(key);
-  if (!stored) {
-    return { ok: false, error: 'Invalid or expired code.' };
-  }
-  if (stored !== code) {
-    // Burn the code after OTP_MAX_ATTEMPTS wrong guesses so a 6-digit code
-    // can't be brute-forced within its 5-minute lifetime.
-    var fails = Number(cache.get(failKey) || 0) + 1;
-    if (fails >= OTP_MAX_ATTEMPTS) {
+  var props = PropertiesService.getScriptProperties();
+
+  // The check and the failure bookkeeping happen under one lock so parallel
+  // guesses can't under-count.
+  var lock = counterLock_();
+  if (!lock.tryLock(10000)) return { ok: false, error: 'Please try again in a moment.' };
+  try {
+    var stored = cache.get(key);
+    if (!stored) return generic;
+    var g = readOtpGuard_(props, email);
+    if (isOtpLocked_(g)) {
       cache.remove(key);
-      cache.remove(failKey);
-      logAudit_(email, 'Login Locked', 'Too many invalid OTP attempts');
-      return { ok: false, error: 'Too many invalid attempts. Please request a new code.' };
+      return { ok: false, error: 'Too many invalid attempts. Admin login for this address is temporarily locked.' };
     }
-    cache.put(failKey, String(fails), OTP_TTL_SECONDS);
-    return { ok: false, error: 'Invalid or expired code.' };
+    if (stored !== code) {
+      g.fails++;
+      g.codeFails++;
+      props.setProperty(otpGuardKey_(email), JSON.stringify(g));
+      if (isOtpLocked_(g)) {
+        cache.remove(key);
+        logAudit_(email, 'Login Locked', OTP_ACCOUNT_MAX_FAILS + ' invalid OTP attempts in 24 h — OTP login locked');
+        return { ok: false, error: 'Too many invalid attempts. Admin login for this address is temporarily locked.' };
+      }
+      // Burn the code after OTP_MAX_ATTEMPTS wrong guesses.
+      if (g.codeFails >= OTP_MAX_ATTEMPTS) {
+        cache.remove(key);
+        logAudit_(email, 'OTP Burned', 'Too many invalid attempts on one code');
+        return { ok: false, error: 'Too many invalid attempts. Please request a new code.' };
+      }
+      return generic;
+    }
+    cache.remove(key);
+    props.deleteProperty(otpGuardKey_(email));
+  } finally {
+    lock.releaseLock();
   }
-  cache.remove(key);
-  cache.remove(failKey);
 
   var admin = getActiveAdmin_(email);
   if (!admin) {
@@ -1332,7 +1582,7 @@ function verifyOtp(email, code) {
   try { lockDownProofFilesOnce_(); } catch (err) { console.error('lockDownProofFilesOnce_ failed: ' + err); }
   // Bundled with the reservations list so the dashboard can render immediately
   // after login instead of waiting on a second round trip.
-  return { ok: true, token: token, email: email, role: admin.role, reservations: getReservations() };
+  return { ok: true, token: token, email: email, role: admin.role, reservations: getReservations_(token) };
 }
 
 function validateSession_(token) {

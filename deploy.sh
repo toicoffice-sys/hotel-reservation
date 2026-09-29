@@ -13,6 +13,12 @@ set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$DIR"
 
+# --push-only: upload to the script project (HEAD / the /dev URL) without
+# touching the pinned production deployment. Use it to authorize new OAuth
+# scopes in the editor and test before promoting with a normal run.
+PUSH_ONLY=0
+if [[ "$1" == "--push-only" ]]; then PUSH_ONLY=1; shift; fi
+
 MSG="${1:-Update hotel reservation system}"
 SCRIPT_ID=$(grep -o '"scriptId": *"[^"]*"' .clasp.json | sed -E 's/.*"scriptId": *"([^"]*)".*/\1/')
 DEPLOY_ID_FILE="$DIR/.deployment_id"
@@ -81,9 +87,9 @@ POLICY_HREF_RULES=(
 )
 
 sed \
-  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
-  -e "s|<script src=\"common.js\"></script>|<?!= include('CommonScript'); ?>|" \
-  -e "s|<script src=\"script.js\"></script>|<?!= include('IndexScript'); ?>|" \
+  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include_('Styles'); ?>|" \
+  -e "s|<script src=\"common.js\"></script>|<?!= include_('CommonScript'); ?>|" \
+  -e "s|<script src=\"script.js\"></script>|<?!= include_('IndexScript'); ?>|" \
   -e 's|href="index.html"|href="?"|' \
   -e 's|href="admin.html"|href="?page=admin"|' \
   -e 's|href="rooms.html"|href="?page=rooms"|' \
@@ -94,9 +100,9 @@ sed \
   index.html > "$BUILD_DIR/Index.html"
 
 sed \
-  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
-  -e "s|<script src=\"common.js\"></script>|<?!= include('CommonScript'); ?>|" \
-  -e "s|<script src=\"rooms.js\"></script>|<?!= include('RoomsScript'); ?>|" \
+  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include_('Styles'); ?>|" \
+  -e "s|<script src=\"common.js\"></script>|<?!= include_('CommonScript'); ?>|" \
+  -e "s|<script src=\"rooms.js\"></script>|<?!= include_('RoomsScript'); ?>|" \
   -e 's|href="admin.html"|href="?page=admin"|' \
   -e 's|href="gallery.html"|href="?page=gallery"|' \
   -e 's|href="index.html?book=1"|href="?book=1"|' \
@@ -106,9 +112,9 @@ sed \
   rooms.html > "$BUILD_DIR/Rooms.html"
 
 sed \
-  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
-  -e "s|<script src=\"common.js\"></script>|<?!= include('CommonScript'); ?>|" \
-  -e "s|<script src=\"gallery.js\"></script>|<?!= include('GalleryScript'); ?>|" \
+  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include_('Styles'); ?>|" \
+  -e "s|<script src=\"common.js\"></script>|<?!= include_('CommonScript'); ?>|" \
+  -e "s|<script src=\"gallery.js\"></script>|<?!= include_('GalleryScript'); ?>|" \
   -e 's|href="admin.html"|href="?page=admin"|' \
   -e 's|href="rooms.html"|href="?page=rooms"|' \
   -e 's|href="index.html?book=1"|href="?book=1"|' \
@@ -118,8 +124,8 @@ sed \
   gallery.html > "$BUILD_DIR/Gallery.html"
 
 sed \
-  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
-  -e "s|<script src=\"admin.js\"></script>|<?!= include('AdminScript'); ?>|" \
+  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include_('Styles'); ?>|" \
+  -e "s|<script src=\"admin.js\"></script>|<?!= include_('AdminScript'); ?>|" \
   -e 's|href="index.html"|href="?"|' \
   "${POLICY_HREF_RULES[@]}" \
   -e "s|src=\"images/|src=\"${IMAGE_BASE}images/|g" \
@@ -130,9 +136,9 @@ sed \
 # params can't be read client-side inside the sandboxed iframe, so the build
 # embeds them server-side the same way (see renderPage_ in Code.gs).
 sed \
-  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
-  -e "s|<script src=\"common.js\"></script>|<?!= include('CommonScript'); ?>|" \
-  -e "s|<script src=\"upload-proof.js\"></script>|<?!= include('UploadProofScript'); ?>|" \
+  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include_('Styles'); ?>|" \
+  -e "s|<script src=\"common.js\"></script>|<?!= include_('CommonScript'); ?>|" \
+  -e "s|<script src=\"upload-proof.js\"></script>|<?!= include_('UploadProofScript'); ?>|" \
   -e 's|href="index.html"|href="?"|' \
   -e 's|href="rooms.html"|href="?page=rooms"|' \
   -e 's|href="gallery.html"|href="?page=gallery"|' \
@@ -141,9 +147,9 @@ sed \
   upload-proof.html > "$BUILD_DIR/UploadProof.html"
 
 sed \
-  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
-  -e "s|<script src=\"common.js\"></script>|<?!= include('CommonScript'); ?>|" \
-  -e "s|<script src=\"cancel-reservation.js\"></script>|<?!= include('CancelReservationScript'); ?>|" \
+  -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include_('Styles'); ?>|" \
+  -e "s|<script src=\"common.js\"></script>|<?!= include_('CommonScript'); ?>|" \
+  -e "s|<script src=\"cancel-reservation.js\"></script>|<?!= include_('CancelReservationScript'); ?>|" \
   -e 's|href="index.html"|href="?"|' \
   -e 's|href="rooms.html"|href="?page=rooms"|' \
   -e 's|href="gallery.html"|href="?page=gallery"|' \
@@ -157,8 +163,8 @@ for pair in safety-security:SafetySecurity sustainability:Sustainability house-r
   slug="${pair%%:*}"
   name="${pair##*:}"
   sed \
-    -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include('Styles'); ?>|" \
-    -e "s|<script src=\"common.js\"></script>|<?!= include('CommonScript'); ?>|" \
+    -e "s|<link rel=\"stylesheet\" href=\"styles.css\" />|<?!= include_('Styles'); ?>|" \
+    -e "s|<script src=\"common.js\"></script>|<?!= include_('CommonScript'); ?>|" \
     -e 's|href="admin.html"|href="?page=admin"|' \
     -e 's|href="rooms.html"|href="?page=rooms"|' \
     -e 's|href="gallery.html"|href="?page=gallery"|' \
@@ -174,6 +180,13 @@ echo "✅  gas-build/ ready (20 files: Code.gs + appsscript.json + Styles/Common
 echo ""
 echo "📤  Pushing gas-build/ to Apps Script..."
 ( cd "$BUILD_DIR" && clasp push --force )
+
+if [[ "$PUSH_ONLY" == "1" ]]; then
+  echo ""
+  echo "⏸️   Push-only: production deployment left unchanged."
+  echo "  Editor   : https://script.google.com/d/${SCRIPT_ID}/edit"
+  exit 0
+fi
 
 echo ""
 if [[ -f "$DEPLOY_ID_FILE" ]]; then
