@@ -90,7 +90,7 @@ sed \
   -e 's|href="gallery.html"|href="?page=gallery"|' \
   "${POLICY_HREF_RULES[@]}" \
   -e "s|src=\"images/|src=\"${IMAGE_BASE}images/|g" \
-  -e "s|<body>|<body><script>var GAS_PRESELECT_ROOM = <?!= JSON.stringify(preselectRoom); ?>; var GAS_SHOW_BOOKING = <?!= JSON.stringify(showBooking); ?>;</script>|" \
+  -e "s|<body>|<body><script>var GAS_PRESELECT_ROOM = <?!= safeJson_(preselectRoom); ?>; var GAS_SHOW_BOOKING = <?!= safeJson_(showBooking); ?>;</script>|" \
   index.html > "$BUILD_DIR/Index.html"
 
 sed \
@@ -137,7 +137,7 @@ sed \
   -e 's|href="rooms.html"|href="?page=rooms"|' \
   -e 's|href="gallery.html"|href="?page=gallery"|' \
   -e "s|src=\"images/|src=\"${IMAGE_BASE}images/|g" \
-  -e "s|<body>|<body><script>var GAS_RESERVATION_ID = <?!= JSON.stringify(guestReservationId); ?>; var GAS_TOKEN = <?!= JSON.stringify(guestToken); ?>;</script>|" \
+  -e "s|<body>|<body><script>var GAS_RESERVATION_ID = <?!= safeJson_(guestReservationId); ?>; var GAS_TOKEN = <?!= safeJson_(guestToken); ?>;</script>|" \
   upload-proof.html > "$BUILD_DIR/UploadProof.html"
 
 sed \
@@ -148,7 +148,7 @@ sed \
   -e 's|href="rooms.html"|href="?page=rooms"|' \
   -e 's|href="gallery.html"|href="?page=gallery"|' \
   -e "s|src=\"images/|src=\"${IMAGE_BASE}images/|g" \
-  -e "s|<body>|<body><script>var GAS_RESERVATION_ID = <?!= JSON.stringify(guestReservationId); ?>; var GAS_TOKEN = <?!= JSON.stringify(guestToken); ?>;</script>|" \
+  -e "s|<body>|<body><script>var GAS_RESERVATION_ID = <?!= safeJson_(guestReservationId); ?>; var GAS_TOKEN = <?!= safeJson_(guestToken); ?>;</script>|" \
   cancel-reservation.html > "$BUILD_DIR/CancelReservation.html"
 
 # Four policy pages share an identical build recipe (chrome + footer only,

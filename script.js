@@ -203,7 +203,7 @@ async function loadCalendar() {
       month: `${calendarYear}-${pad2(calendarMonth + 1)}`
     });
     if (!result.ok) {
-      grid.innerHTML = `<div class="mini-calendar-empty">${result.error || 'Could not load availability.'}</div>`;
+      grid.innerHTML = `<div class="mini-calendar-empty">${escapeHtml(result.error || 'Could not load availability.')}</div>`;
       return;
     }
     calendarCache[key] = result.days;
@@ -349,7 +349,7 @@ function updateSummary() {
 // ── Availability & submission ────────────────────────────────────────────
 
 function showAlert(message, type) {
-  document.getElementById('formAlert').innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+  document.getElementById('formAlert').innerHTML = `<div class="alert alert-${type}">${escapeHtml(message)}</div>`;
 }
 
 function clearAlert() {
@@ -455,13 +455,13 @@ async function onSubmitReservation(e) {
   try {
     const result = await apiPost({ action: 'submitReservation', ...f });
     if (!result.ok) {
-      showReservationResultModal(false, result.error);
+      showReservationResultModal(false, escapeHtml(result.error));
       return;
     }
     showReservationResultModal(
       true,
-      `Reservation ID: <strong>${result.reservationId}</strong> — Status: ${result.status}.<br>` +
-      `A confirmation email has been sent to ${f.email}.`
+      `Reservation ID: <strong>${escapeHtml(result.reservationId)}</strong> — Status: ${escapeHtml(result.status)}.<br>` +
+      `A confirmation email has been sent to ${escapeHtml(f.email)}.`
     );
     document.getElementById('bookingForm').reset();
     setDefaultDates();

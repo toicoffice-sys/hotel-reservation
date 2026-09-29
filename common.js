@@ -107,6 +107,14 @@ function writeRoomsCache_(rooms) {
   } catch (err) { /* storage unavailable — skip caching, not fatal */ }
 }
 
+// HTML-escape any API/sheet/user value before it goes into an innerHTML
+// template. Shared by every guest page that loads common.js.
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function formatCurrency(n) {
   return 'PHP ' + Number(n || 0).toLocaleString('en-PH');
 }
@@ -117,10 +125,10 @@ function renderRoomCards(gridEl, rooms, onBook) {
   gridEl.innerHTML = rooms.map(room => `
     <div class="room-card">
       <div class="thumb">${ROOM_IMAGES[room.roomType]
-        ? `<img src="${ROOM_IMAGES[room.roomType]}" alt="${room.roomType}" loading="lazy" />`
+        ? `<img src="${ROOM_IMAGES[room.roomType]}" alt="${escapeHtml(room.roomType)}" loading="lazy" />`
         : (ROOM_ICONS[room.roomType] || '🏠')}</div>
       <div class="body">
-        <h4>${room.roomType}</h4>
+        <h4>${escapeHtml(room.roomType)}</h4>
         <div class="rate">${formatCurrency(room.rate)} <span>/ ${HOURLY_ROOM_TYPES.includes(room.roomType) ? 'hour' : 'night'}</span></div>
         <div class="meta">${HOURLY_ROOM_TYPES.includes(room.roomType)
           ? `Includes ${room.includedGuests} guests${room.maxGuests !== room.includedGuests ? ` &middot; Max ${room.maxGuests} guests` : ''}`
@@ -131,7 +139,7 @@ function renderRoomCards(gridEl, rooms, onBook) {
           ${ROOM_AMENITIES[room.roomType].map(item => `<li>${item}</li>`).join('')}
         </ul>` : ''}
         <div class="actions">
-          <button class="btn btn-primary" data-select="${room.roomType}">Book Now</button>
+          <button class="btn btn-primary" data-select="${escapeHtml(room.roomType)}">Book Now</button>
         </div>
       </div>
     </div>
@@ -237,7 +245,7 @@ function initContactModal() {
         alertEl.innerHTML = '<div class="alert alert-success">Thanks — your message has been sent. We\'ll get back to you soon.</div>';
         form.reset();
       } else {
-        alertEl.innerHTML = `<div class="alert alert-error">${result.error || 'Something went wrong. Please try again.'}</div>`;
+        alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(result.error || 'Something went wrong. Please try again.')}</div>`;
       }
     } catch (err) {
       alertEl.innerHTML = '<div class="alert alert-error">Network error — please try again.</div>';

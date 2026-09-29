@@ -7,6 +7,20 @@ const TOKEN_KEY = 'dlsl_hotel_admin_token';
 const EMAIL_KEY = 'dlsl_hotel_admin_email';
 const SUPER_ADMIN_ROLE = 'Super Admin';
 
+// Every value that came from the API (guest input, admin input, sheet data)
+// goes through esc() before being placed into an innerHTML template.
+function esc(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Proof-of-payment links are only rendered as links when they point at
+// Google Drive; anything else (e.g. the "Emailed to admin" note) is text.
+function safeDriveUrl(url) {
+  return /^https:\/\/(drive|docs)\.google\.com\//.test(String(url || '')) ? String(url) : '';
+}
+
 // See common.js's navigateTop for why this can't be a plain relative
 // window.location assignment inside the Apps Script deployment.
 function navigateTop(relativePath, queryString) {
@@ -91,7 +105,7 @@ function showDashboard(email) {
 
 function loginAlert(message, type) {
   document.getElementById('loginAlert').innerHTML = message
-    ? `<div class="alert alert-${type}">${message}</div>` : '';
+    ? `<div class="alert alert-${esc(type)}">${esc(message)}</div>` : '';
 }
 
 function bindLoginEvents() {
@@ -235,7 +249,7 @@ function populateRoomFilter() {
   const current = select.value;
   const roomTypes = [...new Set(reservations.map(r => r['Room Type']))].sort();
   select.innerHTML = '<option value="">All Room Types</option>' +
-    roomTypes.map(rt => `<option value="${rt}">${rt}</option>`).join('');
+    roomTypes.map(rt => `<option value="${esc(rt)}">${esc(rt)}</option>`).join('');
   select.value = current;
 }
 
@@ -292,14 +306,14 @@ function renderTable() {
 
   tbody.innerHTML = pageItems.map(r => `
     <tr>
-      <td>${r['Reservation ID']}</td>
-      <td>${r['Full Name']}</td>
-      <td>${r['Room Type']}</td>
-      <td>${r['Check-In']} ${r['Check-In Time'] || ''}</td>
-      <td>${r['Check-Out']} ${r['Check-Out Time'] || ''}</td>
+      <td>${esc(r['Reservation ID'])}</td>
+      <td>${esc(r['Full Name'])}</td>
+      <td>${esc(r['Room Type'])}</td>
+      <td>${esc(r['Check-In'])} ${esc(r['Check-In Time'] || '')}</td>
+      <td>${esc(r['Check-Out'])} ${esc(r['Check-Out Time'] || '')}</td>
       <td>${formatCurrency(r['Total Expenses'])}</td>
-      <td><span class="pill ${statusPillClass(r['Status'])}">${r['Status']}</span></td>
-      <td><button class="row-link" data-id="${r['Reservation ID']}">Review</button></td>
+      <td><span class="pill ${statusPillClass(r['Status'])}">${esc(r['Status'])}</span></td>
+      <td><button class="row-link" data-id="${esc(r['Reservation ID'])}">Review</button></td>
     </tr>
   `).join('');
 
@@ -348,28 +362,28 @@ function openReviewModal(reservationId) {
 
   document.getElementById('reviewModalTitle').textContent = reservationId;
   document.getElementById('reviewDetailGrid').innerHTML = `
-    <div class="k">Guest Name</div><div class="v">${r['Full Name']}</div>
-    <div class="k">Email</div><div class="v">${r['Email']}</div>
-    <div class="k">Phone</div><div class="v">${r['Phone']}</div>
-    <div class="k">Affiliation</div><div class="v">${r['Affiliation'] || '—'}</div>
-    <div class="k">Guests Name</div><div class="v">${r['Guests Name'] || '—'}</div>
-    <div class="k">Guests Company / Address</div><div class="v">${r['Guests Company / Address'] || '—'}</div>
-    <div class="k">Room Type</div><div class="v">${r['Room Type']}</div>
-    <div class="k">Guests</div><div class="v">${r['Guests']}</div>
-    <div class="k">Check-In</div><div class="v">${r['Check-In']} ${r['Check-In Time'] || ''}</div>
-    <div class="k">Check-Out</div><div class="v">${r['Check-Out']} ${r['Check-Out Time'] || ''}</div>
+    <div class="k">Guest Name</div><div class="v">${esc(r['Full Name'])}</div>
+    <div class="k">Email</div><div class="v">${esc(r['Email'])}</div>
+    <div class="k">Phone</div><div class="v">${esc(r['Phone'])}</div>
+    <div class="k">Affiliation</div><div class="v">${esc(r['Affiliation'] || '—')}</div>
+    <div class="k">Guests Name</div><div class="v">${esc(r['Guests Name'] || '—')}</div>
+    <div class="k">Guests Company / Address</div><div class="v">${esc(r['Guests Company / Address'] || '—')}</div>
+    <div class="k">Room Type</div><div class="v">${esc(r['Room Type'])}</div>
+    <div class="k">Guests</div><div class="v">${esc(r['Guests'])}</div>
+    <div class="k">Check-In</div><div class="v">${esc(r['Check-In'])} ${esc(r['Check-In Time'] || '')}</div>
+    <div class="k">Check-Out</div><div class="v">${esc(r['Check-Out'])} ${esc(r['Check-Out Time'] || '')}</div>
     <div class="k">Room Rate</div><div class="v">${formatCurrency(r['Room Rate'])}</div>
-    <div class="k">Nights</div><div class="v">${r['Nights']}</div>
+    <div class="k">Nights</div><div class="v">${esc(r['Nights'])}</div>
     <div class="k">Late Checkout Fee</div><div class="v">${formatCurrency(r['Late Checkout Fee'])}</div>
     <div class="k">Mattress Fee</div><div class="v">${formatCurrency(r['Mattress Fee'])}</div>
     <div class="k">Total Expenses</div><div class="v">${formatCurrency(r['Total Expenses'])}</div>
-    <div class="k">Status</div><div class="v"><span class="pill ${statusPillClass(r['Status'])}">${r['Status']}</span></div>
-    <div class="k">Special Requests</div><div class="v">${r['Special Requests'] || '—'}</div>
-    <div class="k">Proof of Payment</div><div class="v">${r['Proof of Payment']
-      ? `<a href="${r['Proof of Payment']}" target="_blank" rel="noopener">Open attachment &rarr;</a>`
-      : '—'}</div>
-    <div class="k">Reviewed By</div><div class="v">${r['Reviewed By'] || '—'}</div>
-    <div class="k">Reviewed At</div><div class="v">${r['Reviewed At'] || '—'}</div>
+    <div class="k">Status</div><div class="v"><span class="pill ${statusPillClass(r['Status'])}">${esc(r['Status'])}</span></div>
+    <div class="k">Special Requests</div><div class="v">${esc(r['Special Requests'] || '—')}</div>
+    <div class="k">Proof of Payment</div><div class="v">${safeDriveUrl(r['Proof of Payment'])
+      ? `<a href="${esc(safeDriveUrl(r['Proof of Payment']))}" target="_blank" rel="noopener noreferrer">Open attachment &rarr;</a>`
+      : esc(r['Proof of Payment'] || '—')}</div>
+    <div class="k">Reviewed By</div><div class="v">${esc(r['Reviewed By'] || '—')}</div>
+    <div class="k">Reviewed At</div><div class="v">${esc(r['Reviewed At'] || '—')}</div>
   `;
   document.getElementById('adminRemarks').value = r['Admin Remarks'] || '';
   document.getElementById('reviewModal').classList.add('open');
@@ -439,7 +453,7 @@ function bindUsersEvents() {
     try {
       const result = await apiPost({ action: 'addAdmin', token: getToken(), email, role });
       if (!result.ok) {
-        alertEl.innerHTML = `<div class="alert alert-error">${result.error}</div>`;
+        alertEl.innerHTML = `<div class="alert alert-error">${esc(result.error)}</div>`;
         return;
       }
       document.getElementById('newAdminEmail').value = '';
@@ -459,7 +473,7 @@ async function loadAdmins() {
   try {
     const result = await apiGet({ action: 'listAdmins', token: getToken() });
     if (!result.ok) {
-      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${result.error || 'Could not load admins.'}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${esc(result.error || 'Could not load admins.')}</td></tr>`;
       return;
     }
     admins = result.admins;
@@ -479,13 +493,13 @@ function renderAdmins() {
   }
   tbody.innerHTML = admins.map(a => `
     <tr>
-      <td>${a.email}</td>
-      <td>${a.role}</td>
-      <td><span class="pill ${a.status === 'Active' ? 'pill-approved' : 'pill-rejected'}">${a.status}</span></td>
-      <td>${a.addedBy || '—'}</td>
-      <td>${a.addedAt || '—'}</td>
+      <td>${esc(a.email)}</td>
+      <td>${esc(a.role)}</td>
+      <td><span class="pill ${a.status === 'Active' ? 'pill-approved' : 'pill-rejected'}">${esc(a.status)}</span></td>
+      <td>${esc(a.addedBy || '—')}</td>
+      <td>${esc(a.addedAt || '—')}</td>
       <td>${a.status === 'Active' && a.email !== myEmail
-        ? `<button class="row-link" data-remove="${a.email}">Remove</button>`
+        ? `<button class="row-link" data-remove="${esc(a.email)}">Remove</button>`
         : ''}</td>
     </tr>
   `).join('');
@@ -501,7 +515,7 @@ async function removeAdminHandler(email) {
   try {
     const result = await apiPost({ action: 'removeAdmin', token: getToken(), email });
     if (!result.ok) {
-      alertEl.innerHTML = `<div class="alert alert-error">${result.error}</div>`;
+      alertEl.innerHTML = `<div class="alert alert-error">${esc(result.error)}</div>`;
       return;
     }
     loadAdmins();
@@ -527,7 +541,7 @@ async function loadAuditLog() {
   try {
     const result = await apiGet({ action: 'listAuditLog', token: getToken() });
     if (!result.ok) {
-      tbody.innerHTML = `<tr><td colspan="4" class="empty-state">${result.error || 'Could not load audit log.'}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="empty-state">${esc(result.error || 'Could not load audit log.')}</td></tr>`;
       return;
     }
     auditLoaded = true;
@@ -554,10 +568,10 @@ function renderAuditLog() {
 
   tbody.innerHTML = pageItems.map(l => `
     <tr>
-      <td>${l.timestamp}</td>
-      <td>${l.actorEmail || '—'}</td>
-      <td>${l.action}</td>
-      <td>${l.details || '—'}</td>
+      <td>${esc(l.timestamp)}</td>
+      <td>${esc(l.actorEmail || '—')}</td>
+      <td>${esc(l.action)}</td>
+      <td>${esc(l.details || '—')}</td>
     </tr>
   `).join('');
 
@@ -602,7 +616,7 @@ function renderAnalytics() {
   const roomTypes = Object.keys(byRoom).sort();
   document.getElementById('anRoomBody').innerHTML = roomTypes.length ? roomTypes.map(rt => `
     <tr>
-      <td>${rt}</td>
+      <td>${esc(rt)}</td>
       <td>${byRoom[rt].bookings}</td>
       <td>${byRoom[rt].approved}</td>
       <td>${formatCurrency(byRoom[rt].revenue)}</td>
@@ -620,7 +634,7 @@ function renderAnalytics() {
   const months = Object.keys(byMonth).sort();
   document.getElementById('anMonthBody').innerHTML = months.length ? months.map(m => `
     <tr>
-      <td>${m}</td>
+      <td>${esc(m)}</td>
       <td>${byMonth[m].count}</td>
       <td>${formatCurrency(byMonth[m].revenue)}</td>
     </tr>
@@ -710,12 +724,12 @@ function openDayDetail(dateStr) {
     body.innerHTML = dayReservations.map(r => `
       <div class="day-detail-row">
         <div>
-          <strong>${r['Full Name']}</strong>
-          <div class="day-detail-meta">${r['Room Type']} &middot; ${r['Check-In']} ${r['Check-In Time'] || ''} &rarr; ${r['Check-Out']} ${r['Check-Out Time'] || ''}</div>
+          <strong>${esc(r['Full Name'])}</strong>
+          <div class="day-detail-meta">${esc(r['Room Type'])} &middot; ${esc(r['Check-In'])} ${esc(r['Check-In Time'] || '')} &rarr; ${esc(r['Check-Out'])} ${esc(r['Check-Out Time'] || '')}</div>
         </div>
         <div class="day-detail-actions">
-          <span class="pill ${statusPillClass(r['Status'])}">${r['Status']}</span>
-          <button type="button" class="row-link" data-review="${r['Reservation ID']}">Review</button>
+          <span class="pill ${statusPillClass(r['Status'])}">${esc(r['Status'])}</span>
+          <button type="button" class="row-link" data-review="${esc(r['Reservation ID'])}">Review</button>
         </div>
       </div>
     `).join('');

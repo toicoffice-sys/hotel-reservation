@@ -12,6 +12,62 @@ var OTP_MAX_ATTEMPTS = 5;
 
 var ADMIN_ROLES = ['Admin', 'Super Admin'];
 var SUPER_ADMIN_ROLE = 'Super Admin';
+var PROOF_MAX_BYTES = 5 * 1024 * 1024;
+
+// Guest free text: trimmed, length-capped, angle brackets and control chars
+// stripped. Rendering still HTML-escapes; this is defense in depth only.
+function cleanText_(value, maxLen) {
+  return String(value == null ? '' : value)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F<>]/g, '')
+    .trim()
+    .slice(0, maxLen || 200);
+}
+
+function escapeHtml_(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// JSON that is safe inside an inline script block via a template scriptlet.
+function safeJson_(value) {
+  return JSON.stringify(value == null ? '' : value)
+    .replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+}
+
+// Upload type is decided from the file's leading bytes, never from the
+// client-supplied mimeType or filename.
+function detectProofType_(bytes) {
+  var b = bytes.slice(0, 12).map(function (x) { return x & 0xFF; });
+  if (b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46) return { mime: 'application/pdf', ext: 'pdf' };
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) return { mime: 'image/png', ext: 'png' };
+  if (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return { mime: 'image/jpeg', ext: 'jpg' };
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+      b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return { mime: 'image/webp', ext: 'webp' };
+  return null;
+}
+
+// Returns { ok, blob } or { ok:false, error }. Throws nothing.
+function buildProofBlob_(base64Data, fileName, reservationId) {
+  var bytes;
+  try {
+    bytes = Utilities.base64Decode(String(base64Data || ''));
+  } catch (err) {
+    return { ok: false, error: 'The uploaded file could not be read.' };
+  }
+  if (!bytes.length || bytes.length > PROOF_MAX_BYTES) {
+    return { ok: false, error: 'File is empty or too large (max 5 MB).' };
+  }
+  var type = detectProofType_(bytes);
+  if (!type) {
+    return { ok: false, error: 'Only PDF, PNG, JPEG or WEBP files are accepted.' };
+  }
+  var base = String(fileName || 'proof-of-payment').replace(/\.[^.]*$/, '')
+    .replace(/[^A-Za-z0-9 _-]/g, '_').slice(0, 60) || 'proof-of-payment';
+  var name = reservationId + ' - ' + base + '.' + type.ext;
+  return { ok: true, blob: Utilities.newBlob(bytes, type.mime, name) };
+}
 
 var ADMIN_HEADERS = ['Email', 'Role', 'Added By', 'Added At', 'Status'];
 var DEFAULT_ADMINS = ADMIN_EMAILS.map(function (e) {
@@ -120,10 +176,13 @@ function renderPage_(e) {
   // Apps Script build embeds these values server-side instead (see
   // deploy.sh). UploadProof/CancelReservation lean on the same trick for
   // the ?res=/?token= pair from the guest's emailed link.
-  template.preselectRoom = (e && e.parameter && e.parameter.room) ? e.parameter.room : '';
-  template.showBooking = !!(e && e.parameter && e.parameter.book);
-  template.guestReservationId = (e && e.parameter && e.parameter.res) ? e.parameter.res : '';
-  template.guestToken = (e && e.parameter && e.parameter.token) ? e.parameter.token : '';
+  // Emitted into an inline script via safeJson_ (see deploy.sh), and also
+  // narrowed to their expected shapes here.
+  var p = (e && e.parameter) || {};
+  template.preselectRoom = p.room ? cleanText_(p.room, 80) : '';
+  template.showBooking = !!p.book;
+  template.guestReservationId = /^RES-\d{1,20}$/.test(p.res || '') ? p.res : '';
+  template.guestToken = /^[0-9a-f]{64}$/.test(p.token || '') ? p.token : '';
   return template.evaluate()
     .setTitle('DLSL Chez Rafael')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -294,6 +353,7 @@ function addAdmin(email, role, actorEmail) {
     sheet.appendRow([email, role, actorEmail || '', new Date(), 'Active']);
   }
   logAudit_(actorEmail, 'Admin Added', email + ' (' + role + ')');
+  syncProofFolderViewersSafe_();
   return { ok: true };
 }
 
@@ -324,6 +384,7 @@ function removeAdmin(email, actorEmail) {
   var sheet = getAdminsSheet_();
   sheet.getRange(targetIndex + 2, 5).setValue('Inactive');
   logAudit_(actorEmail, 'Admin Removed', email);
+  syncProofFolderViewersSafe_();
   return { ok: true };
 }
 
@@ -557,6 +618,18 @@ function getAvailabilityCalendar(roomType, monthStr) {
 }
 
 function submitReservation(body) {
+  body = body || {};
+  body.fullName = cleanText_(body.fullName, 120);
+  body.email = cleanText_(body.email, 254);
+  body.phone = cleanText_(body.phone, 40);
+  body.affiliation = cleanText_(body.affiliation, 120);
+  body.guestsName = cleanText_(body.guestsName, 500);
+  body.guestsCompany = cleanText_(body.guestsCompany, 300);
+  body.specialRequests = cleanText_(body.specialRequests, 1000);
+  if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+    return { ok: false, error: 'Enter a valid email address.' };
+  }
+
   var required = ['fullName', 'email', 'phone', 'checkIn', 'checkOut', 'roomType', 'guests'];
   for (var i = 0; i < required.length; i++) {
     if (!body[required[i]]) {
@@ -590,52 +663,69 @@ function submitReservation(body) {
     return { ok: false, error: 'Check-out date/time must be later than check-in date/time.' };
   }
 
-  // Re-validate the slot server-side right before writing, to close the race
-  // between the guest's earlier availability check and this submission.
-  var overlapping = countOverlappingBookings_(body.roomType, start, end, null);
-  if (overlapping >= room.inventory) {
-    return { ok: false, error: room.roomType + ' is fully booked for the selected date and time.' };
+  var proof = null;
+  if (body.proofOfPaymentData) {
+    proof = buildProofBlob_(body.proofOfPaymentData, body.proofOfPaymentName, 'RES');
+    if (!proof.ok) return { ok: false, error: proof.error };
   }
 
   var pricing = computePricing_(room, start, end, checkOutTime, guests, mattressQty);
-
-  var reservationId = 'RES-' + Math.floor(Date.now() / 1000);
-
-  var proofOfPaymentUrl = '';
-  if (body.proofOfPaymentData) {
-    proofOfPaymentUrl = saveProofOfPayment_(
-      body.proofOfPaymentData, body.proofOfPaymentName, body.proofOfPaymentType, reservationId
-    );
-  }
-
   var sheet = getReservationsSheet_();
-  sheet.appendRow([
-    reservationId,
-    new Date(),
-    body.fullName,
-    body.email,
-    body.phone,
-    body.affiliation || '',
-    body.checkIn,
-    checkInTime,
-    body.checkOut,
-    checkOutTime,
-    guests,
-    room.roomType,
-    room.rate,
-    pricing.nights,
-    pricing.lateCheckoutFee,
-    pricing.mattressFee,
-    pricing.totalExpenses,
-    body.specialRequests || '',
-    'Pending Approval',
-    '',
-    '',
-    '',
-    proofOfPaymentUrl,
-    body.guestsName || '',
-    body.guestsCompany || ''
-  ]);
+
+  // The availability re-check and the row append must be atomic, otherwise
+  // two concurrent submissions for the last unit can both pass the check.
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) {
+    return { ok: false, error: 'The reservation system is busy. Please try again in a moment.' };
+  }
+  var reservationId;
+  try {
+    var overlapping = countOverlappingBookings_(body.roomType, start, end, null);
+    if (overlapping >= room.inventory) {
+      return { ok: false, error: room.roomType + ' is fully booked for the selected date and time.' };
+    }
+
+    var idNum = Math.floor(Date.now() / 1000);
+    while (findReservationRowNum_(sheet, 'RES-' + idNum) !== -1) idNum++;
+    reservationId = 'RES-' + idNum;
+
+    var proofOfPaymentUrl = '';
+    if (proof) {
+      proof.blob.setName(proof.blob.getName().replace(/^RES/, reservationId));
+      proofOfPaymentUrl = storeProofBlob_(proof.blob);
+    }
+
+    sheet.appendRow([
+      reservationId,
+      new Date(),
+      body.fullName,
+      body.email,
+      body.phone,
+      body.affiliation || '',
+      body.checkIn,
+      checkInTime,
+      body.checkOut,
+      checkOutTime,
+      guests,
+      room.roomType,
+      room.rate,
+      pricing.nights,
+      pricing.lateCheckoutFee,
+      pricing.mattressFee,
+      pricing.totalExpenses,
+      body.specialRequests || '',
+      'Pending Approval',
+      '',
+      '',
+      '',
+      proofOfPaymentUrl,
+      body.guestsName || '',
+      body.guestsCompany || ''
+    ]);
+    SpreadsheetApp.flush();
+  } finally {
+    lock.releaseLock();
+  }
 
   sendReservationEmail(body.email, {
     reservationId: reservationId,
@@ -657,16 +747,13 @@ function submitReservation(body) {
   };
 }
 
-// Uploads a guest's proof-of-payment attachment to a dedicated Drive folder
-// (created once, reused via Script Properties) and returns a link an admin
-// can open from the reservation review modal.
-function saveProofOfPayment_(base64Data, fileName, mimeType, reservationId) {
-  var decoded = Utilities.base64Decode(base64Data);
-  var safeName = String(fileName || 'proof-of-payment').replace(/[\/\\]/g, '_');
-  var blob = Utilities.newBlob(decoded, mimeType || 'application/octet-stream', reservationId + ' — ' + safeName);
+// Stores a validated proof-of-payment blob (see buildProofBlob_) in the
+// dedicated Drive folder. The file stays private: admins reach it through
+// the folder's viewer list (syncProofFolderViewers_), never a public link.
+function storeProofBlob_(blob) {
   var folder = getProofOfPaymentFolder_();
   var file = folder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
   return file.getUrl();
 }
 
@@ -676,12 +763,10 @@ function saveProofOfPayment_(base64Data, fileName, mimeType, reservationId) {
 // isn't available yet, email the receipt straight to the admins instead, so
 // the upload still succeeds. Once Drive is authorized this goes back to
 // giving a real link automatically — no further code change needed.
-function saveOrEmailProofOfPayment_(base64Data, fileName, mimeType, reservationId, fullName, roomType) {
+function saveOrEmailProofOfPayment_(blob, reservationId, fullName, roomType) {
   try {
-    return saveProofOfPayment_(base64Data, fileName, mimeType, reservationId);
+    return storeProofBlob_(blob);
   } catch (err) {
-    var safeName = String(fileName || 'proof-of-payment').replace(/[\/\\]/g, '_');
-    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType || 'application/octet-stream', safeName);
     MailApp.sendEmail({
       to: getActiveAdminEmails_().join(','),
       subject: 'Proof of Payment (emailed) — ' + reservationId,
@@ -710,7 +795,66 @@ function getProofOfPaymentFolder_() {
   }
   var folder = DriveApp.createFolder('DLSL Chez Rafael — Proof of Payment');
   props.setProperty('PROOF_OF_PAYMENT_FOLDER_ID', folder.getId());
+  syncProofFolderViewers_(folder);
   return folder;
+}
+
+// Keeps the proof-of-payment folder shared with exactly the Active admins
+// (plus the owner). Files inside inherit this, so no public links needed.
+function syncProofFolderViewers_(folder) {
+  folder = folder || getProofOfPaymentFolder_();
+  folder.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+  var owner = String(folder.getOwner() ? folder.getOwner().getEmail() : '').toLowerCase();
+  var active = getActiveAdminEmails_();
+  var current = folder.getViewers().concat(folder.getEditors())
+    .map(function (u) { return String(u.getEmail() || '').toLowerCase(); });
+  active.forEach(function (email) {
+    if (email !== owner && current.indexOf(email) === -1) {
+      try { folder.addViewer(email); } catch (err) { /* not a Google account */ }
+    }
+  });
+  folder.getViewers().forEach(function (u) {
+    var email = String(u.getEmail() || '').toLowerCase();
+    if (email && email !== owner && active.indexOf(email) === -1) {
+      try { folder.removeViewer(email); } catch (err) {}
+    }
+  });
+  folder.getEditors().forEach(function (u) {
+    var email = String(u.getEmail() || '').toLowerCase();
+    if (email && email !== owner && active.indexOf(email) === -1) {
+      try { folder.removeEditor(email); } catch (err) {}
+    }
+  });
+}
+
+// Admin add/remove must not fail just because Drive isn't authorized yet or
+// the folder hasn't been created.
+function syncProofFolderViewersSafe_() {
+  try {
+    if (PropertiesService.getScriptProperties().getProperty('PROOF_OF_PAYMENT_FOLDER_ID')) {
+      syncProofFolderViewers_();
+    }
+  } catch (err) {
+    console.error('syncProofFolderViewers_ failed: ' + err);
+  }
+}
+
+// One-time migration: files uploaded before this fix were shared
+// ANYONE_WITH_LINK. Runs once (flagged in Script Properties) on the next
+// admin login, then never again.
+function lockDownProofFilesOnce_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('PROOF_LOCKDOWN_V1') || !props.getProperty('PROOF_OF_PAYMENT_FOLDER_ID')) return;
+  var folder = getProofOfPaymentFolder_();
+  var files = folder.getFiles();
+  var count = 0;
+  while (files.hasNext()) {
+    files.next().setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+    count++;
+  }
+  syncProofFolderViewers_(folder);
+  props.setProperty('PROOF_LOCKDOWN_V1', new Date().toISOString());
+  logAudit_('System', 'Proof files locked down', count + ' file(s) set to private');
 }
 
 // Mirrors the pricing logic used client-side for the live cost summary, kept
@@ -869,11 +1013,12 @@ function submitProofOfPayment(body) {
     return { ok: false, error: 'Proof of payment can only be uploaded for an approved reservation.' };
   }
 
+  var proof = buildProofBlob_(body.proofOfPaymentData, body.proofOfPaymentName, reservationId);
+  if (!proof.ok) return { ok: false, error: proof.error };
+
   var fullName = sheet.getRange(rowNum, idx['Full Name'] + 1).getValue();
   var roomType = sheet.getRange(rowNum, idx['Room Type'] + 1).getValue();
-  var reference = saveOrEmailProofOfPayment_(
-    body.proofOfPaymentData, body.proofOfPaymentName, body.proofOfPaymentType, reservationId, fullName, roomType
-  );
+  var reference = saveOrEmailProofOfPayment_(proof.blob, reservationId, fullName, roomType);
   sheet.getRange(rowNum, idx['Proof of Payment'] + 1).setValue(reference);
 
   logAudit_('Guest', 'Proof of payment uploaded', reservationId + ' (' + fullName + ', ' + roomType + ')');
@@ -1061,13 +1206,13 @@ function sendStatusUpdateEmail_(email, info) {
 
   var htmlBody =
     '<div style="font-family:Arial,Helvetica,sans-serif;color:#1c231f;font-size:14px;line-height:1.6;">' +
-      '<p>Dear ' + info.fullName + ',</p>' +
+      '<p>Dear ' + escapeHtml_(info.fullName) + ',</p>' +
       '<p>Your reservation request has been reviewed.</p>' +
       '<p>' +
-        'Reservation ID: ' + info.reservationId + '<br>' +
-        'Room Type: ' + info.roomType + '<br>' +
-        'Status: <strong>' + info.status + '</strong>' +
-        (info.adminRemarks ? ('<br>Remarks: ' + info.adminRemarks) : '') +
+        'Reservation ID: ' + escapeHtml_(info.reservationId) + '<br>' +
+        'Room Type: ' + escapeHtml_(info.roomType) + '<br>' +
+        'Status: <strong>' + escapeHtml_(info.status) + '</strong>' +
+        (info.adminRemarks ? ('<br>Remarks: ' + escapeHtml_(info.adminRemarks)) : '') +
       '</p>' +
       htmlActions +
       '<p>Sincerely,<br>Chez Rafael</p>' +
@@ -1079,10 +1224,10 @@ function sendStatusUpdateEmail_(email, info) {
 // ── Contact Us inquiries ────────────────────────────────────────────────────
 
 function submitContactInquiry(body) {
-  var name = String((body && body.name) || '').trim();
-  var email = String((body && body.email) || '').trim();
-  var phone = String((body && body.phone) || '').trim();
-  var message = String((body && body.message) || '').trim();
+  var name = cleanText_(body && body.name, 120);
+  var email = cleanText_(body && body.email, 254);
+  var phone = cleanText_(body && body.phone, 40);
+  var message = cleanText_(body && body.message, 3000);
 
   if (!name) return { ok: false, error: 'Please enter your name.' };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Enter a valid email address.' };
@@ -1131,8 +1276,10 @@ function requestOtp(email) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: 'Enter a valid email address.' };
   }
+  // Same response whether or not the email is an admin, so the endpoint
+  // can't be used to enumerate the admin roster.
   if (getActiveAdminEmails_().indexOf(email) === -1) {
-    return { ok: false, error: 'This email is not authorized for admin access.' };
+    return { ok: true };
   }
   var code = String(Math.floor(100000 + Math.random() * 900000));
   var otpCache = CacheService.getScriptCache();
@@ -1182,6 +1329,7 @@ function verifyOtp(email, code) {
   sessions[token] = { email: email, expiresAt: Date.now() + SESSION_TTL_MS };
   saveSessions_(sessions);
   logAudit_(email, 'Login', 'Admin logged in');
+  try { lockDownProofFilesOnce_(); } catch (err) { console.error('lockDownProofFilesOnce_ failed: ' + err); }
   // Bundled with the reservations list so the dashboard can render immediately
   // after login instead of waiting on a second round trip.
   return { ok: true, token: token, email: email, role: admin.role, reservations: getReservations() };

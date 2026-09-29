@@ -38,17 +38,17 @@ async function init() {
 }
 
 function renderError(state, message) {
-  state.innerHTML = `<div class="alert alert-error">${message}</div>`;
+  state.innerHTML = `<div class="alert alert-error">${escapeHtml(message)}</div>`;
 }
 
 function renderForm(state, reservation, reservationId, token) {
   state.innerHTML = `
     <div class="detail-grid" style="margin-bottom: 20px;">
-      <div class="k">Reservation ID</div><div class="v">${reservationId}</div>
-      <div class="k">Guest</div><div class="v">${reservation.fullName}</div>
-      <div class="k">Room Type</div><div class="v">${reservation.roomType}</div>
-      <div class="k">Check-In</div><div class="v">${reservation.checkIn}</div>
-      <div class="k">Check-Out</div><div class="v">${reservation.checkOut}</div>
+      <div class="k">Reservation ID</div><div class="v">${escapeHtml(reservationId)}</div>
+      <div class="k">Guest</div><div class="v">${escapeHtml(reservation.fullName)}</div>
+      <div class="k">Room Type</div><div class="v">${escapeHtml(reservation.roomType)}</div>
+      <div class="k">Check-In</div><div class="v">${escapeHtml(reservation.checkIn)}</div>
+      <div class="k">Check-Out</div><div class="v">${escapeHtml(reservation.checkOut)}</div>
       <div class="k">Total Expenses</div><div class="v">PHP ${Number(reservation.totalExpenses || 0).toLocaleString('en-PH')}</div>
     </div>
     ${reservation.hasProofOfPayment
@@ -104,7 +104,7 @@ async function onSubmit(e, reservationId, token) {
       proofOfPaymentData, proofOfPaymentName: file.name, proofOfPaymentType: file.type
     });
     if (!result.ok) {
-      alertEl.innerHTML = `<div class="alert alert-error">${result.error}</div>`;
+      alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(result.error)}</div>`;
       btn.disabled = false;
       btn.textContent = 'Upload Proof of Payment';
       return;
