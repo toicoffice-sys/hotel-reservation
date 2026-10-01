@@ -162,6 +162,10 @@
         <div class="summary-row total"><span>Total Expenses</span><span id="sumTotal">PHP 0</span></div>
       </div>
 
+      <div class="consent">
+        <details class="privacy-notice"><summary>Privacy Notice</summary><p>DLSL Chez Rafael collects the personal information on this form (name, contact details, stay details and, if you provide one, your payment receipt) only to process and manage your reservation. It is accessible only to authorized hotel administrators, kept within De La Salle Lipa's Google Workspace, and retained only as long as needed for the reservation and applicable accounting and legal requirements. Under the Data Privacy Act of 2012 (RA 10173) you may request access to, correction of, or deletion of your data by emailing info@dlsl.edu.ph.</p></details>
+        <label class="consent-check" for="privacyConsent"><input type="checkbox" id="privacyConsent" required /><span>I have read the Privacy Notice and agree to DLSL Chez Rafael processing my personal data for this reservation.</span></label>
+      </div>
       <div style="margin-top: 12px; display:flex; gap: 10px; flex-wrap: wrap;">
         <button type="submit" class="btn btn-primary" id="submitBtn">Submit Reservation</button>
       </div>
@@ -230,7 +234,11 @@
           <label for="contactMessage">Message</label>
           <textarea id="contactMessage" name="contactMessage" rows="4" required></textarea>
         </div>
-        <button type="submit" class="btn btn-primary" id="contactSubmitBtn">Send Message</button>
+        <div class="consent">
+          <details class="privacy-notice"><summary>Privacy Notice</summary><p>DLSL Chez Rafael collects the personal information on this form (name, contact details, stay details and, if you provide one, your payment receipt) only to process and manage your inquiry. It is accessible only to authorized hotel administrators, kept within De La Salle Lipa's Google Workspace, and retained only as long as needed for the inquiry and applicable accounting and legal requirements. Under the Data Privacy Act of 2012 (RA 10173) you may request access to, correction of, or deletion of your data by emailing info@dlsl.edu.ph.</p></details>
+          <label class="consent-check" for="contactConsent"><input type="checkbox" id="contactConsent" required /><span>I have read the Privacy Notice and agree to DLSL Chez Rafael processing my personal data to respond to this inquiry.</span></label>
+        </div>
+        <button type="submit" class="btn btn-primary" id="contactSubmitBtn" style="margin-top:12px;">Send Message</button>
       </form>
     </div>
   </div>

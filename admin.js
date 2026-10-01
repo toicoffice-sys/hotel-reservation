@@ -4,6 +4,10 @@
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbysMtfkO4-tuzx-dK_CvWqqDlf3rBk4nOSo6w60UTeak6y6Fq1AEuEymA06NuoD09aODg/exec';
 
 const TOKEN_KEY = 'dlsl_hotel_admin_token';
+// sessionStorage, not localStorage: the token dies with the tab and is
+// never left behind on a shared/kiosk browser. It is only ever sent in
+// POST bodies, never in a URL.
+const tokenStore = window.sessionStorage;
 const EMAIL_KEY = 'dlsl_hotel_admin_email';
 const SUPER_ADMIN_ROLE = 'Super Admin';
 
@@ -58,28 +62,25 @@ async function init() {
   bindAuditEvents();
   bindCalendarEvents();
 
-  const token = localStorage.getItem(TOKEN_KEY);
+  // Tokens from before the move to sessionStorage are no longer valid
+  // server-side either; just clear them.
+  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(EMAIL_KEY); } catch (err) {}
+
+  const token = tokenStore.getItem(TOKEN_KEY);
   if (token) {
     const ok = await loadReservations(token);
     if (ok) {
-      showDashboard(localStorage.getItem(EMAIL_KEY) || '');
+      showDashboard(tokenStore.getItem(EMAIL_KEY) || '');
       return;
     }
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(EMAIL_KEY);
+    clearSession();
   }
   showLogin();
 }
 
 const API_TIMEOUT_MS = 20000;
 
-async function apiGet(params) {
-  const url = new URL(SCRIPT_URL);
-  Object.keys(params).forEach(k => { if (params[k] !== undefined && params[k] !== '') url.searchParams.set(k, params[k]); });
-  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(API_TIMEOUT_MS) });
-  return res.json();
-}
-
+// Every admin call is a POST so the session token travels in the body only.
 async function apiPost(body) {
   const res = await fetch(SCRIPT_URL, {
     method: 'POST',
@@ -87,7 +88,27 @@ async function apiPost(body) {
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(API_TIMEOUT_MS)
   });
-  return res.json();
+  const result = await res.json();
+  // Server-side expiry (8 h absolute / 30 min idle) or revocation.
+  if (body.token && !result.ok && result.error === 'Not authenticated.') endSession('Your session has ended. Please sign in again.');
+  return result;
+}
+
+function clearSession() {
+  tokenStore.removeItem(TOKEN_KEY);
+  tokenStore.removeItem(EMAIL_KEY);
+}
+
+function endSession(message) {
+  clearSession();
+  usersLoaded = false;
+  auditLoaded = false;
+  document.getElementById('emailForm').style.display = 'flex';
+  document.getElementById('emailForm').style.flexDirection = 'column';
+  document.getElementById('codeForm').style.display = 'none';
+  document.getElementById('loginEmail').value = '';
+  showLogin();
+  loginAlert(message || '', message ? 'error' : '');
 }
 
 // ── Login gate ────────────────────────────────────────────────────────────
@@ -117,7 +138,7 @@ function bindLoginEvents() {
     btn.disabled = true;
     btn.textContent = 'Sending...';
     try {
-      const result = await apiGet({ action: 'requestOtp', email });
+      const result = await apiPost({ action: 'requestOtp', email });
       if (!result.ok) {
         loginAlert(result.error, 'error');
         return;
@@ -149,8 +170,8 @@ function bindLoginEvents() {
         loginAlert(result.error, 'error');
         return;
       }
-      localStorage.setItem(TOKEN_KEY, result.token);
-      localStorage.setItem(EMAIL_KEY, result.email);
+      tokenStore.setItem(TOKEN_KEY, result.token);
+      tokenStore.setItem(EMAIL_KEY, result.email);
       applyRole(result.role);
       applyReservations(result.reservations);
       showDashboard(result.email);
@@ -173,7 +194,7 @@ function bindLoginEvents() {
 // ── Dashboard data ───────────────────────────────────────────────────────
 
 function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
+  return tokenStore.getItem(TOKEN_KEY);
 }
 
 // Cosmetic only — the server enforces Super Admin on every user-management
@@ -203,9 +224,9 @@ function applyReservations(list) {
 
 async function loadReservations(token) {
   try {
-    const result = await apiGet({ action: 'listReservations', token });
+    const result = await apiPost({ action: 'listReservations', token });
     if (!result.ok) {
-      loginAlert(result.error || 'Session expired. Please sign in again.', 'error');
+      if (result.error !== 'Not authenticated.') loginAlert(result.error || 'Session expired. Please sign in again.', 'error');
       return false;
     }
     applyRole(result.role);
@@ -223,15 +244,14 @@ function bindDashboardEvents() {
   document.getElementById('roomFilter').addEventListener('change', () => { reservationsPage = 1; renderTable(); });
   document.getElementById('refreshBtn').addEventListener('click', () => loadReservations(getToken()));
 
-  document.getElementById('logoutBtn').addEventListener('click', e => {
+  document.getElementById('logoutBtn').addEventListener('click', async e => {
     e.preventDefault();
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(EMAIL_KEY);
-    document.getElementById('emailForm').style.display = 'flex';
-    document.getElementById('emailForm').style.flexDirection = 'column';
-    document.getElementById('codeForm').style.display = 'none';
-    document.getElementById('loginEmail').value = '';
-    showLogin();
+    const token = getToken();
+    endSession('');
+    // Revoke server-side so any other copy of the token stops working too.
+    if (token) {
+      try { await apiPost({ action: 'logout', token }); } catch (err) { /* already signed out locally */ }
+    }
   });
 
   document.getElementById('reviewModalClose').addEventListener('click', closeReviewModal);
@@ -471,7 +491,7 @@ async function loadAdmins() {
   const tbody = document.getElementById('adminsBody');
   tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Loading admins...</td></tr>';
   try {
-    const result = await apiGet({ action: 'listAdmins', token: getToken() });
+    const result = await apiPost({ action: 'listAdmins', token: getToken() });
     if (!result.ok) {
       tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${esc(result.error || 'Could not load admins.')}</td></tr>`;
       return;
@@ -486,7 +506,7 @@ async function loadAdmins() {
 
 function renderAdmins() {
   const tbody = document.getElementById('adminsBody');
-  const myEmail = (localStorage.getItem(EMAIL_KEY) || '').toLowerCase();
+  const myEmail = (tokenStore.getItem(EMAIL_KEY) || '').toLowerCase();
   if (!admins.length) {
     tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No admins found.</td></tr>';
     return;
@@ -498,7 +518,9 @@ function renderAdmins() {
       <td><span class="pill ${a.status === 'Active' ? 'pill-approved' : 'pill-rejected'}">${esc(a.status)}</span></td>
       <td>${esc(a.addedBy || '—')}</td>
       <td>${esc(a.addedAt || '—')}</td>
-      <td>${a.status === 'Active' && a.email !== myEmail
+      <td>${a.loginLocked
+          ? `<button class="row-link" data-unlock="${esc(a.email)}">Unlock login</button> `
+          : ''}${a.status === 'Active' && a.email !== myEmail
         ? `<button class="row-link" data-remove="${esc(a.email)}">Remove</button>`
         : ''}</td>
     </tr>
@@ -506,6 +528,25 @@ function renderAdmins() {
 
   tbody.querySelectorAll('[data-remove]').forEach(btn =>
     btn.addEventListener('click', () => removeAdminHandler(btn.getAttribute('data-remove'))));
+  tbody.querySelectorAll('[data-unlock]').forEach(btn =>
+    btn.addEventListener('click', () => unlockAdminHandler(btn.getAttribute('data-unlock'))));
+}
+
+async function unlockAdminHandler(email) {
+  if (!confirm(`Clear the login lock for ${email}? Only do this once the account owner confirms the failed attempts were theirs or the cause is understood.`)) return;
+  const alertEl = document.getElementById('usersAlert');
+  alertEl.innerHTML = '';
+  try {
+    const result = await apiPost({ action: 'unlockAdminLogin', token: getToken(), email });
+    if (!result.ok) {
+      alertEl.innerHTML = `<div class="alert alert-error">${esc(result.error)}</div>`;
+      return;
+    }
+    alertEl.innerHTML = '<div class="alert alert-success">Login unlocked.</div>';
+    loadAdmins();
+  } catch (err) {
+    alertEl.innerHTML = '<div class="alert alert-error">Could not reach the reservation system.</div>';
+  }
 }
 
 async function removeAdminHandler(email) {
@@ -539,7 +580,7 @@ async function loadAuditLog() {
   tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Loading audit log...</td></tr>';
   document.getElementById('auditPagination').innerHTML = '';
   try {
-    const result = await apiGet({ action: 'listAuditLog', token: getToken() });
+    const result = await apiPost({ action: 'listAuditLog', token: getToken() });
     if (!result.ok) {
       tbody.innerHTML = `<tr><td colspan="4" class="empty-state">${esc(result.error || 'Could not load audit log.')}</td></tr>`;
       return;

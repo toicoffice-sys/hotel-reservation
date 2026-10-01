@@ -234,7 +234,8 @@ function initContactModal() {
       name: document.getElementById('contactName').value.trim(),
       email: document.getElementById('contactEmail').value.trim(),
       phone: document.getElementById('contactPhone').value.trim(),
-      message: document.getElementById('contactMessage').value.trim()
+      message: document.getElementById('contactMessage').value.trim(),
+      privacyConsent: document.getElementById('contactConsent').checked
     };
 
     submitBtn.disabled = true;

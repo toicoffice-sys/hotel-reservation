@@ -388,7 +388,8 @@ function readForm() {
     affiliation: document.getElementById('affiliation').value,
     guestsName: document.getElementById('guestsName').value,
     guestsCompany: document.getElementById('guestsCompany').value,
-    specialRequests: document.getElementById('specialRequests').value
+    specialRequests: document.getElementById('specialRequests').value,
+    privacyConsent: document.getElementById('privacyConsent').checked
   };
 }
 
@@ -436,6 +437,10 @@ async function onSubmitReservation(e) {
     showAlert('Please complete your guest information.', 'error');
     return;
   }
+  if (!f.privacyConsent) {
+    showAlert('Please confirm that you have read the Privacy Notice.', 'error');
+    return;
+  }
   if (room && Number(f.guests) > room.maxGuests) {
     showAlert(`${room.roomType} allows a maximum of ${room.maxGuests} guests.`, 'error');
     return;
@@ -461,7 +466,10 @@ async function onSubmitReservation(e) {
     showReservationResultModal(
       true,
       `Reservation ID: <strong>${escapeHtml(result.reservationId)}</strong> — Status: ${escapeHtml(result.status)}.<br>` +
-      `A confirmation email has been sent to ${escapeHtml(f.email)}.`
+      (result.emailSent === false
+        ? 'Please keep this Reservation ID — we could not send a confirmation email right now. ' +
+          'You will still be emailed once your reservation is reviewed.'
+        : `A confirmation email has been sent to ${escapeHtml(f.email)}.`)
     );
     document.getElementById('bookingForm').reset();
     setDefaultDates();

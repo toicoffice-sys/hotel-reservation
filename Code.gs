@@ -7,7 +7,10 @@
 // getActiveAdminEmails_). Kept here just to seed that sheet on first run.
 var ADMIN_EMAILS = ['toic.pm@dlsl.edu.ph'];
 var OTP_TTL_SECONDS = 5 * 60;
-var SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+// Absolute session lifetime, plus an idle timeout refreshed on each use.
+var SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+var SESSION_IDLE_MS = 30 * 60 * 1000;
+var SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 var OTP_MAX_ATTEMPTS = 5;
 
 var ADMIN_ROLES = ['Admin', 'Super Admin'];
@@ -82,7 +85,7 @@ var RESERVATION_HEADERS = [
   'Room Type', 'Room Rate', 'Nights', 'Late Checkout Fee', 'Mattress Fee',
   'Total Expenses', 'Special Requests', 'Status', 'Admin Remarks',
   'Reviewed By', 'Reviewed At', 'Proof of Payment',
-  'Guests Name', 'Guests Company / Address'
+  'Guests Name', 'Guests Company / Address', 'Privacy Consent At'
 ];
 
 var ROOM_HEADERS = ['Room Type', 'Inventory', 'Rate', 'Included Guests', 'Max Guests'];
@@ -131,16 +134,8 @@ function doGet(e) {
         ));
       case 'getAvailabilityCalendar':
         return jsonOutput_(getAvailabilityCalendar_(e.parameter.roomType, e.parameter.month));
-      case 'listReservations':
-        return jsonOutput_(listReservations_(e.parameter.token));
-      case 'listAdmins':
-        return jsonOutput_(listAdmins_(e.parameter.token));
-      case 'listAuditLog':
-        return jsonOutput_(listAuditLog_(e.parameter.token));
-      case 'requestOtp':
-        return jsonOutput_(requestOtp_(e.parameter.email));
-      case 'getGuestReservation':
-        return jsonOutput_(getGuestReservation_(e.parameter.reservationId, e.parameter.token));
+      // Anything that carries a session or guest token is POST-only (see
+      // doPost) so tokens never appear in URLs, proxy logs or history.
       default:
         return jsonOutput_({ ok: false, error: 'Unknown or missing action.' });
     }
@@ -201,8 +196,22 @@ function doPost(e) {
     switch (body.action) {
       case 'submitReservation':
         return jsonOutput_(submitReservation_(body));
+      case 'requestOtp':
+        return jsonOutput_(requestOtp_(body.email));
       case 'verifyOtp':
         return jsonOutput_(verifyOtp_(body.email, body.code));
+      case 'logout':
+        return jsonOutput_(logout_(body.token));
+      case 'listReservations':
+        return jsonOutput_(listReservations_(body.token));
+      case 'listAdmins':
+        return jsonOutput_(listAdmins_(body.token));
+      case 'listAuditLog':
+        return jsonOutput_(listAuditLog_(body.token));
+      case 'unlockAdminLogin':
+        return jsonOutput_(unlockAdminLoginBySuperAdmin_(body.token, body.email));
+      case 'getGuestReservation':
+        return jsonOutput_(getGuestReservation_(body.reservationId, body.token));
       case 'updateReservationStatus':
         return jsonOutput_(updateReservationStatus_(body.token, body.reservationId, body.newStatus, body.adminRemarks));
       case 'addAdmin':
@@ -378,6 +387,7 @@ function removeAdmin_(token, email) {
   }
   var sheet = getAdminsSheet_();
   sheet.getRange(targetIndex + 2, 5).setValue('Inactive');
+  revokeSessionsFor_(email);
   logAudit_(actorEmail, 'Admin Removed', email);
   syncProofFolderViewersSafe_();
   return { ok: true };
@@ -391,7 +401,25 @@ function logAudit_(actorEmail, action, details) {
 
 function listAdmins_(token) {
   requireSuperAdmin_(token);
-  return { ok: true, admins: getAdmins_() };
+  var props = PropertiesService.getScriptProperties();
+  var admins = getAdmins_().map(function (a) {
+    a.loginLocked = a.status === 'Active' && isOtpLocked_(readOtpGuard_(props, a.email));
+    return a;
+  });
+  return { ok: true, admins: admins };
+}
+
+// A Super Admin can clear another admin's OTP lockout (R3-05: a lockout
+// triggered by someone guessing codes against that address shouldn't need
+// the script owner to open the editor). Audited.
+function unlockAdminLoginBySuperAdmin_(token, email) {
+  var actorEmail = requireSuperAdmin_(token).email;
+  email = String(email || '').trim().toLowerCase();
+  if (!getActiveAdmin_(email)) return { ok: false, error: 'Admin not found.' };
+  unlockAdminLogin_(email);
+  CacheService.getScriptCache().remove('rl_otpRequestPerEmail_' + hashKey_(email));
+  logAudit_(actorEmail, 'Login Unlocked', email);
+  return { ok: true };
 }
 
 function listAuditLog_(token) {
@@ -645,6 +673,11 @@ function submitReservation_(body) {
   if (body.fullName && !isPlainName_(body.fullName)) {
     return { ok: false, error: 'Please enter your full name using letters only.' };
   }
+  // RA 10173: personal data is only collected after the guest acknowledges
+  // the Privacy Notice shown on the form.
+  if (body.privacyConsent !== true) {
+    return { ok: false, error: 'Please confirm that you have read the Privacy Notice.' };
+  }
 
   var required = ['fullName', 'email', 'phone', 'checkIn', 'checkOut', 'roomType', 'guests'];
   for (var i = 0; i < required.length; i++) {
@@ -690,7 +723,9 @@ function submitReservation_(body) {
     if (!proof.ok) return { ok: false, error: proof.error };
   }
 
-  var buckets = [{ name: 'reservationPerEmail', id: body.email }, { name: 'reservationGlobal' }];
+  // Only the global ceilings gate the booking itself; the per-address
+  // bucket below only decides whether a confirmation email goes out (R3-05).
+  var buckets = [{ name: 'reservationGlobal' }];
   if (proof) buckets.push({ name: 'proofUploadGlobal' });
   if (!takeRateLimit_(buckets)) {
     return { ok: false, error: 'Too many reservation requests right now. Please try again later or contact the front desk.' };
@@ -750,7 +785,8 @@ function submitReservation_(body) {
       '',
       proofOfPaymentUrl,
       body.guestsName || '',
-      body.guestsCompany || ''
+      body.guestsCompany || '',
+      new Date()
     ]);
     SpreadsheetApp.flush();
   } catch (err) {
@@ -766,7 +802,8 @@ function submitReservation_(body) {
     } catch (err) { console.error('Proof rename failed: ' + err); }
   }
 
-  if (guestMailAllowed_()) sendReservationEmail_(body.email, {
+  var emailSent = takeRateLimit_([{ name: 'reservationMailPerEmail', id: body.email }]) && takeGuestMail_();
+  if (emailSent) sendReservationEmail_(body.email, {
     reservationId: reservationId,
     fullName: body.fullName,
     roomType: room.roomType,
@@ -782,7 +819,8 @@ function submitReservation_(body) {
     ok: true,
     reservationId: reservationId,
     status: 'Pending Approval',
-    pricing: pricing
+    pricing: pricing,
+    emailSent: emailSent
   };
 }
 
@@ -841,9 +879,41 @@ function authorizeAndCheck() {
   var files = Drive.Files.list({ q: "'" + folderId + "' in parents and trashed = false", fields: 'files(id)', pageSize: 100 }).files || [];
   console.log('Proof files visible in folder: ' + files.length);
 
-  props.deleteProperty('PROOF_LOCKDOWN_V1');
-  lockDownProofFilesOnce_();
-  console.log('Lockdown done; folder shared with: ' + getActiveAdminEmails_().join(', '));
+  var status = sweepProofSharing_();
+  console.log('Proof sharing sweep: ' + JSON.stringify(status));
+  console.log('Folder shared with: ' + getActiveAdminEmails_().join(', '));
+}
+
+// Run from the Apps Script editor (Run ▸ securityStateReport) to produce the
+// Script-Properties state note the security audit asks for. Values that are
+// secrets (EMAIL_ACTION_SECRET, session hashes, OTP guard contents) are
+// reported as present/absent or counted, never printed.
+function securityStateReport() {
+  requireScriptOwner_();
+  var props = PropertiesService.getScriptProperties().getProperties();
+  var sessions = loadSessions_();
+  var guards = Object.keys(props).filter(function (k) { return /^OTP_GUARD_/.test(k); });
+  var locked = guards.filter(function (k) { return isOtpLocked_(JSON.parse(props[k])); }).length;
+  var report = {
+    generatedAt: new Date().toISOString(),
+    webAppUrl: ScriptApp.getService().getUrl(),
+    mailQuotaRemainingToday: MailApp.getRemainingDailyQuota(),
+    MAIL_QUOTA_RESERVE: MAIL_QUOTA_RESERVE,
+    GUEST_MAIL_DAILY_CAP: GUEST_MAIL_DAILY_CAP,
+    GUEST_MAIL_COUNT: props.GUEST_MAIL_COUNT || '(none yet)',
+    RATE_LIMITS: RATE_LIMITS,
+    PROOF_OF_PAYMENT_FOLDER_ID: props.PROOF_OF_PAYMENT_FOLDER_ID ? 'set' : 'not set',
+    PROOF_LOCKDOWN_V1: props.PROOF_LOCKDOWN_V1 || 'not set',
+    PROOF_SHARING_STATUS: props.PROOF_SHARING_STATUS ? JSON.parse(props.PROOF_SHARING_STATUS) : 'never run',
+    EMAIL_ACTION_SECRET: props.EMAIL_ACTION_SECRET ? 'present (value withheld)' : 'absent',
+    SESSIONS: { active: Object.keys(sessions).length, storedAs: 'SHA-256 of token',
+      ttlHours: SESSION_TTL_MS / 3600000, idleMinutes: SESSION_IDLE_MS / 60000 },
+    OTP_GUARD: { trackedAccounts: guards.length, currentlyLocked: locked,
+      maxFails: OTP_ACCOUNT_MAX_FAILS, windowHours: OTP_FAIL_WINDOW_MS / 3600000 },
+    activeAdmins: getActiveAdminEmails_().length
+  };
+  console.log(JSON.stringify(report, null, 2));
+  return report;
 }
 
 // Drive access needs a one-time manual authorization (Drive.Files.create
@@ -929,26 +999,79 @@ function syncProofFolderViewersSafe_() {
   }
 }
 
-// One-time migration: files uploaded before this fix were shared
-// ANYONE_WITH_LINK. Runs once (flagged in Script Properties) on the next
-// admin login, then never again.
+// R3-02: proof-of-payment sharing sweep. Re-runnable and self-evidencing:
+//  1. every file in the proof folder has any "anyone"/"domain" link
+//     permission removed;
+//  2. every Drive link in the Reservations sheet's Proof of Payment column
+//     is checked too — including files that are NOT in the current folder
+//     (e.g. from an older, replaced folder) — and locked down if reachable;
+//  3. the folder's viewer list is re-synced to the Active admins;
+//  4. the result is written to the Audit Log and to the PROOF_SHARING_STATUS
+//     script property, so the live state can be shown to the auditor.
+// Runs on admin login when it has never run or the last run is older than
+// PROOF_SWEEP_INTERVAL_MS, and on demand from authorizeAndCheck.
+var PROOF_SWEEP_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+
 function lockDownProofFilesOnce_() {
   var props = PropertiesService.getScriptProperties();
-  if (props.getProperty('PROOF_LOCKDOWN_V1') || !props.getProperty('PROOF_OF_PAYMENT_FOLDER_ID')) return;
+  if (!props.getProperty('PROOF_OF_PAYMENT_FOLDER_ID')) return;
+  var last = JSON.parse(props.getProperty('PROOF_SHARING_STATUS') || 'null');
+  if (last && Date.now() - new Date(last.at).getTime() < PROOF_SWEEP_INTERVAL_MS) return;
+  sweepProofSharing_();
+}
+
+function sweepProofSharing_() {
+  var props = PropertiesService.getScriptProperties();
   var folderId = getProofOfPaymentFolderId_();
-  var count = 0;
+  var status = { at: new Date().toISOString(), folderFiles: 0, sheetLinks: 0, outsideFolder: 0,
+    linksRemoved: 0, unreachable: [] };
+  var seen = {};
+
+  function lockDown(id) {
+    var before = Drive.Permissions.list(id, { fields: 'permissions(id,type)' }).permissions || [];
+    var open = before.filter(function (p) { return p.type === 'anyone' || p.type === 'domain'; }).length;
+    if (open) { makeDriveItemPrivate_(id); status.linksRemoved += open; }
+  }
+
   var pageToken;
   do {
     var page = Drive.Files.list({
       q: "'" + folderId + "' in parents and trashed = false",
       fields: 'nextPageToken, files(id)', pageSize: 100, pageToken: pageToken
     });
-    (page.files || []).forEach(function (f) { makeDriveItemPrivate_(f.id); count++; });
+    (page.files || []).forEach(function (f) { seen[f.id] = true; status.folderFiles++; lockDown(f.id); });
     pageToken = page.nextPageToken;
   } while (pageToken);
+
+  var sheet = getReservationsSheet_();
+  var idx = headerIndex_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2 && idx['Proof of Payment'] !== undefined) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, idx['Proof of Payment'] + 1).getValues();
+    rows.forEach(function (r) {
+      var m = String(r[idx['Proof of Payment']] || '').match(/\/d\/([A-Za-z0-9_-]{10,})/);
+      if (!m) return;
+      status.sheetLinks++;
+      if (seen[m[1]]) return;
+      seen[m[1]] = true;
+      status.outsideFolder++;
+      try {
+        lockDown(m[1]);
+      } catch (err) {
+        status.unreachable.push(String(r[0]));
+      }
+    });
+  }
+
   syncProofFolderViewers_(folderId);
-  props.setProperty('PROOF_LOCKDOWN_V1', new Date().toISOString());
-  logAudit_('System', 'Proof files locked down', count + ' file(s) set to private');
+  props.setProperty('PROOF_SHARING_STATUS', JSON.stringify(status));
+  props.setProperty('PROOF_LOCKDOWN_V1', status.at);
+  logAudit_('System', 'Proof sharing sweep',
+    status.folderFiles + ' folder file(s), ' + status.sheetLinks + ' sheet link(s), ' +
+    status.outsideFolder + ' outside folder, ' + status.linksRemoved + ' public/domain link(s) removed, ' +
+    status.unreachable.length + ' unreachable' +
+    (status.unreachable.length ? ' (' + status.unreachable.join(', ') + ')' : ''));
+  return status;
 }
 
 // Mirrors the pricing logic used client-side for the live cost summary, kept
@@ -1048,8 +1171,35 @@ function signReservationToken_(reservationId) {
   return bytes.map(function (b) { return ((b + 256) % 256).toString(16).padStart(2, '0'); }).join('');
 }
 
+// Constant-time comparison so response timing can't be used to recover a
+// valid token byte by byte. Lengths are fixed (64 hex), so not secret.
+function constantTimeEquals_(a, b) {
+  a = String(a); b = String(b);
+  if (a.length !== b.length) return false;
+  var diff = 0;
+  for (var i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 function verifyReservationToken_(reservationId, token) {
-  return !!reservationId && !!token && signReservationToken_(reservationId) === token;
+  if (typeof reservationId !== 'string' || !/^RES-\d{1,20}$/.test(reservationId)) return false;
+  if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) return false;
+  return constantTimeEquals_(signReservationToken_(reservationId), token);
+}
+
+// Guest links stop working once there is nothing left to do with them:
+// the booking is Rejected/Declined, or its check-out was more than
+// GUEST_LINK_GRACE_DAYS ago. Returns an error message, or '' if usable.
+var GUEST_LINK_GRACE_DAYS = 7;
+
+function guestLinkExpiredReason_(row, idx) {
+  var status = row[idx['Status']];
+  if (status === 'Rejected' || status === 'Declined') return 'This reservation is already ' + String(status).toLowerCase() + '.';
+  var checkOut = parseSheetDateTime_(row[idx['Check-Out']], row[idx['Check-Out Time']]);
+  if (!isNaN(checkOut.getTime()) && Date.now() - checkOut.getTime() > GUEST_LINK_GRACE_DAYS * 86400000) {
+    return 'This link has expired. Please contact the front desk.';
+  }
+  return '';
 }
 
 // Limited, token-gated view of a reservation for the guest-facing
@@ -1067,7 +1217,7 @@ function isWithinGuestCancellationWindow_(row, idx) {
 
 function getGuestReservation_(reservationId, token) {
   if (!verifyReservationToken_(reservationId, token)) {
-    return { ok: false, error: 'This link is invalid or has expired.' };
+    return { ok: false, error: 'This link is invalid.' };
   }
   var sheet = getReservationsSheet_();
   var idx = headerIndex_();
@@ -1075,6 +1225,8 @@ function getGuestReservation_(reservationId, token) {
   if (rowNum === -1) return { ok: false, error: 'Reservation not found.' };
 
   var row = sheet.getRange(rowNum, 1, 1, RESERVATION_HEADERS.length).getValues()[0];
+  var expired = guestLinkExpiredReason_(row, idx);
+  if (expired && !/already/.test(expired)) return { ok: false, error: expired };
   return {
     ok: true,
     reservationId: reservationId,
@@ -1093,7 +1245,7 @@ function submitProofOfPayment_(body) {
   var reservationId = body && body.reservationId;
   var token = body && body.token;
   if (!verifyReservationToken_(reservationId, token)) {
-    return { ok: false, error: 'This link is invalid or has expired.' };
+    return { ok: false, error: 'This link is invalid.' };
   }
   if (!body.proofOfPaymentData) {
     return { ok: false, error: 'Please attach a screenshot or PDF of your payment receipt.' };
@@ -1104,7 +1256,10 @@ function submitProofOfPayment_(body) {
   var rowNum = findReservationRowNum_(sheet, reservationId);
   if (rowNum === -1) return { ok: false, error: 'Reservation not found.' };
 
-  var status = sheet.getRange(rowNum, idx['Status'] + 1).getValue();
+  var row = sheet.getRange(rowNum, 1, 1, RESERVATION_HEADERS.length).getValues()[0];
+  var expired = guestLinkExpiredReason_(row, idx);
+  if (expired) return { ok: false, error: expired };
+  var status = row[idx['Status']];
   if (status !== 'Approved') {
     return { ok: false, error: 'Proof of payment can only be uploaded for an approved reservation.' };
   }
@@ -1126,19 +1281,16 @@ function submitProofOfPayment_(body) {
 
 function guestCancelReservation_(reservationId, token) {
   if (!verifyReservationToken_(reservationId, token)) {
-    return { ok: false, error: 'This link is invalid or has expired.' };
+    return { ok: false, error: 'This link is invalid.' };
   }
   var sheet = getReservationsSheet_();
   var idx = headerIndex_();
   var rowNum = findReservationRowNum_(sheet, reservationId);
   if (rowNum === -1) return { ok: false, error: 'Reservation not found.' };
 
-  var status = sheet.getRange(rowNum, idx['Status'] + 1).getValue();
-  if (status === 'Rejected' || status === 'Declined') {
-    return { ok: false, error: 'This reservation is already ' + status.toLowerCase() + '.' };
-  }
-
   var row = sheet.getRange(rowNum, 1, 1, RESERVATION_HEADERS.length).getValues()[0];
+  var expired = guestLinkExpiredReason_(row, idx);
+  if (expired) return { ok: false, error: expired };
   if (!isWithinGuestCancellationWindow_(row, idx)) {
     return {
       ok: false,
@@ -1332,8 +1484,12 @@ function submitContactInquiry_(body) {
   if (!isPlainName_(name)) return { ok: false, error: 'Please enter your name using letters only.' };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Enter a valid email address.' };
   if (!message) return { ok: false, error: 'Please enter a message.' };
-  if (!guestMailAllowed_() ||
-      !takeRateLimit_([{ name: 'contactPerEmail', id: email }, { name: 'contactGlobal' }])) {
+  if (body.privacyConsent !== true) {
+    return { ok: false, error: 'Please confirm that you have read the Privacy Notice.' };
+  }
+  // The global ceiling gates the inquiry (each one mails the admins); the
+  // per-address bucket only gates the confirmation copy (R3-05).
+  if (!guestMailAllowed_() || !takeRateLimit_([{ name: 'contactGlobal' }])) {
     return { ok: false, error: 'We could not accept your message right now. Please try again later or call the front desk.' };
   }
 
@@ -1347,6 +1503,7 @@ function submitContactInquiry_(body) {
     'Name: ' + name,
     'Email: ' + email,
     phone ? ('Phone: ' + phone) : '',
+    'Privacy Notice acknowledged: ' + new Date().toISOString(),
     '',
     'Message:',
     message
@@ -1356,6 +1513,7 @@ function submitContactInquiry_(body) {
 
   // Fixed text only: nothing the submitter typed is echoed back, so the
   // form can't be used to relay attacker-written mail to a third party.
+  if (!takeRateLimit_([{ name: 'contactMailPerEmail', id: email }]) || !takeGuestMail_()) return { ok: true };
   MailApp.sendEmail({
     to: email,
     subject: 'We received your message — DLSL Chez Rafael',
@@ -1376,8 +1534,8 @@ function submitContactInquiry_(body) {
 
 // ── Abuse controls: rate limits + mail-quota reserve ────────────────────────
 
-// The only public (non-_) function besides doGet/doPost is authorizeAndCheck,
-// which is meant for the editor's Run button. Refuse anyone but the script
+// The only public (non-_) functions besides doGet/doPost are authorizeAndCheck
+// and securityStateReport, both meant for the editor's Run button. Refuse anyone but the script
 // owner: an anonymous caller has no active-user email at all.
 function requireScriptOwner_() {
   var active = String(Session.getActiveUser().getEmail() || '').toLowerCase();
@@ -1385,24 +1543,40 @@ function requireScriptOwner_() {
   if (!active || active !== owner) throw new Error('Owner access required.');
 }
 
-// Public (anonymous) endpoints: every limit is per recipient/submitter
-// address plus a global ceiling. Apps Script exposes no caller IP, so the
-// address the mail would go to is the per-caller key. Windows are 6 h, the
-// CacheService maximum.
-var RATE_WINDOW_SECONDS = 6 * 60 * 60;
+// Public (anonymous) endpoints. Apps Script exposes no caller IP, so there
+// are two kinds of bucket:
+//  • *Global buckets bound the action itself (writes, uploads, admin mail).
+//  • *PerEmail buckets are keyed by an address nobody has proven they own,
+//    so they only ever throttle MAIL TO that address — never the booking or
+//    inquiry itself. Someone who exhausts a victim's address can at most
+//    suppress confirmation copies; the victim can still book and contact
+//    the hotel (R3-05).
+// Sizing (R3-01): the hotel has 10 bookable units across 6 room/venue types
+// (DEFAULT_ROOMS), so legitimate traffic is a few bookings per day. Global
+// ceilings sit roughly an order of magnitude above that; anything near them
+// is abuse, and tripping one emails the admins (alertRateLimitTripped_).
+// Windows are ≤ 6 h (the CacheService maximum).
 var RATE_LIMITS = {
-  otpRequestPerEmail: 5,     // new login codes per admin address
-  otpRequestGlobal: 40,      // login-code emails, all admins
-  contactPerEmail: 2,        // Contact Us submissions per address
-  contactGlobal: 40,
-  reservationPerEmail: 5,    // booking requests per guest address
-  reservationGlobal: 150,
-  proofUploadPerReservation: 5,
-  proofUploadGlobal: 60
+  otpRequestPerEmail:        { max: 5,  windowSec: 15 * 60 },      // login codes per admin address
+  otpRequestGlobal:          { max: 30, windowSec: 60 * 60 },      // login-code emails, all admins
+  contactMailPerEmail:       { max: 2,  windowSec: 6 * 60 * 60 },  // confirmation copies to one address
+  contactGlobal:             { max: 20, windowSec: 6 * 60 * 60 },  // inquiries (each mails the admins)
+  reservationMailPerEmail:   { max: 3,  windowSec: 6 * 60 * 60 },  // confirmation copies to one address
+  reservationGlobal:         { max: 40, windowSec: 6 * 60 * 60 },  // booking requests, all guests
+  proofUploadPerReservation: { max: 5,  windowSec: 6 * 60 * 60 },  // token-holder only, so ownership is proven
+  proofUploadGlobal:         { max: 30, windowSec: 6 * 60 * 60 }
 };
-// Guest-triggered mail stops once the day's remaining MailApp quota falls to
-// this, so admin login codes and approval emails always have room to send.
-var MAIL_QUOTA_RESERVE = 30;
+// Two independent caps on guest-triggered mail, so the worst case over a
+// whole day is fixed regardless of how the 6 h windows line up:
+//  • GUEST_MAIL_DAILY_CAP — hard ceiling on guest-facing messages per
+//    calendar day (Asia/Manila), counted durably in Script Properties.
+//  • MAIL_QUOTA_RESERVE — guest mail also stops once MailApp's remaining
+//    daily quota falls to this, so admin login codes and approval emails
+//    always have room. The deploying account is Google Workspace
+//    (1,500 recipients/day; authorizeAndCheck/securityStateReport log the
+//    live figure), so 100 + 80 admin notifications leaves > 1,300 spare.
+var GUEST_MAIL_DAILY_CAP = 100;
+var MAIL_QUOTA_RESERVE = 100;
 
 function hashKey_(value) {
   var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(value || '').toLowerCase());
@@ -1422,19 +1596,88 @@ function takeRateLimit_(buckets) {
   var cache = CacheService.getScriptCache();
   var lock = counterLock_();
   if (!lock.tryLock(10000)) return false;
+  var tripped = null;
   try {
     var keys = buckets.map(function (b) { return 'rl_' + b.name + '_' + hashKey_(b.id || 'all'); });
     var counts = keys.map(function (k) { return Number(cache.get(k) || 0); });
     for (var i = 0; i < buckets.length; i++) {
-      if (counts[i] >= RATE_LIMITS[buckets[i].name]) return false;
+      if (counts[i] >= RATE_LIMITS[buckets[i].name].max) { tripped = buckets[i].name; break; }
     }
-    keys.forEach(function (k, i) { cache.put(k, String(counts[i] + 1), RATE_WINDOW_SECONDS); });
-    return true;
+    if (!tripped) {
+      keys.forEach(function (k, i) { cache.put(k, String(counts[i] + 1), RATE_LIMITS[buckets[i].name].windowSec); });
+    }
   } finally {
     lock.releaseLock();
   }
+  if (tripped) alertRateLimitTripped_(tripped);
+  return !tripped;
 }
 
+// Detection: the first time a GLOBAL ceiling is hit in its window, the
+// admins get one email and the audit log gets an entry. Per-address buckets
+// don't alert (they are expected to trip occasionally and only affect mail).
+function alertRateLimitTripped_(name) {
+  if (!/Global$/.test(name)) return;
+  var cache = CacheService.getScriptCache();
+  var flag = 'rl_alerted_' + name;
+  if (cache.get(flag)) return;
+  cache.put(flag, '1', RATE_LIMITS[name].windowSec);
+  try {
+    logAudit_('System', 'Rate Limit Reached', name + ' (' + RATE_LIMITS[name].max + ' per ' +
+      Math.round(RATE_LIMITS[name].windowSec / 60) + ' min)');
+    var to = getActiveAdminEmails_();
+    if (to.length) {
+      MailApp.sendEmail({
+        to: to.join(','),
+        subject: 'Chez Rafael security alert — rate limit reached (' + name + ')',
+        body: 'The public booking portal hit its "' + name + '" ceiling (' + RATE_LIMITS[name].max + ' per ' +
+          Math.round(RATE_LIMITS[name].windowSec / 60) + ' minutes). Further requests of this kind are being ' +
+          'refused until the window resets. This usually means automated abuse; review the Audit Log and ' +
+          'Reservations sheet. No action is needed if traffic is legitimate.'
+      });
+    }
+  } catch (err) {
+    console.error('Rate-limit alert failed: ' + err);
+  }
+}
+
+// Checks both guest-mail caps and, if allowed, consumes one unit of the
+// daily budget. Call once per guest-facing message, right before sending.
+function takeGuestMail_() {
+  try {
+    if (MailApp.getRemainingDailyQuota() <= MAIL_QUOTA_RESERVE) return false;
+  } catch (err) {
+    return false;
+  }
+  var lock = counterLock_();
+  if (!lock.tryLock(10000)) return false;
+  var allowed = false;
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var day = Utilities.formatDate(new Date(), 'Asia/Manila', 'yyyy-MM-dd');
+    var raw = props.getProperty('GUEST_MAIL_COUNT');
+    var c = raw ? JSON.parse(raw) : null;
+    if (!c || c.day !== day) c = { day: day, n: 0 };
+    if (c.n < GUEST_MAIL_DAILY_CAP) {
+      c.n++;
+      props.setProperty('GUEST_MAIL_COUNT', JSON.stringify(c));
+      allowed = true;
+    }
+  } finally {
+    lock.releaseLock();
+  }
+  if (!allowed) alertGuestMailCap_();
+  return allowed;
+}
+
+function alertGuestMailCap_() {
+  var cache = CacheService.getScriptCache();
+  if (cache.get('rl_alerted_guestMailDaily')) return;
+  cache.put('rl_alerted_guestMailDaily', '1', 6 * 60 * 60);
+  try { logAudit_('System', 'Rate Limit Reached', 'guestMailDaily (' + GUEST_MAIL_DAILY_CAP + ' per day)'); } catch (err) {}
+}
+
+// Read-only form for paths that must decide before doing work (no unit used).
 function guestMailAllowed_() {
   try {
     return MailApp.getRemainingDailyQuota() > MAIL_QUOTA_RESERVE;
@@ -1478,15 +1721,56 @@ function isOtpLocked_(g) {
   return g.fails >= OTP_ACCOUNT_MAX_FAILS;
 }
 
+// Tells the locked admin and every Super Admin, so a lockout caused by
+// someone else guessing codes is noticed and can be cleared from the Users
+// tab (unlockAdminLoginBySuperAdmin_) without waiting out the 24 h.
+function alertLoginLocked_(email) {
+  try {
+    var supers = getAdmins_().filter(function (a) {
+      return a.status === 'Active' && a.role === SUPER_ADMIN_ROLE;
+    }).map(function (a) { return a.email; });
+    var to = supers.indexOf(email) === -1 ? supers.concat([email]) : supers;
+    MailApp.sendEmail({
+      to: to.join(','),
+      subject: 'Chez Rafael security alert — admin login locked',
+      body: 'Admin login for ' + email + ' was locked after ' + OTP_ACCOUNT_MAX_FAILS + ' wrong login codes in 24 hours.\n\n' +
+        'If this was not the account owner, someone may be trying to guess login codes. Codes are only ever sent to ' +
+        'the admin\'s own inbox, so the account itself is not compromised.\n\n' +
+        'A Super Admin can clear the lock from Admin ▸ Users ▸ Unlock once the owner confirms it is safe.'
+    });
+  } catch (err) {
+    console.error('Lockout alert failed: ' + err);
+  }
+}
+
 function unlockAdminLogin_(email) {
   PropertiesService.getScriptProperties().deleteProperty(otpGuardKey_(String(email || '').trim().toLowerCase()));
 }
+
+// R3-04: every well-formed request — admin or not, throttled, locked or
+// mailed — returns the same body AND takes the same wall-clock time. The
+// work is padded up to OTP_RESPONSE_FLOOR_MS (comfortably above the slowest
+// branch: lock + property write + MailApp send), so response latency no
+// longer tells an observer whether an address is on the admin roster.
+var OTP_RESPONSE_FLOOR_MS = 4000;
 
 function requestOtp_(email) {
   email = String(email || '').trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: 'Enter a valid email address.' };
   }
+  var started = Date.now();
+  try {
+    issueOtpIfAdmin_(email);
+  } catch (err) {
+    console.error('requestOtp_ failed: ' + err);
+  }
+  var remaining = OTP_RESPONSE_FLOOR_MS - (Date.now() - started);
+  if (remaining > 0) Utilities.sleep(remaining);
+  return { ok: true };
+}
+
+function issueOtpIfAdmin_(email) {
   // Same response whether or not the email is an admin — or throttled or
   // locked — so the endpoint can't be used to enumerate the admin roster.
   if (getActiveAdminEmails_().indexOf(email) === -1) {
@@ -1553,6 +1837,7 @@ function verifyOtp_(email, code) {
       if (isOtpLocked_(g)) {
         cache.remove(key);
         logAudit_(email, 'Login Locked', OTP_ACCOUNT_MAX_FAILS + ' invalid OTP attempts in 24 h — OTP login locked');
+        alertLoginLocked_(email);
         return { ok: false, error: 'Too many invalid attempts. Admin login for this address is temporarily locked.' };
       }
       // Burn the code after OTP_MAX_ATTEMPTS wrong guesses.
@@ -1574,10 +1859,7 @@ function verifyOtp_(email, code) {
     return { ok: false, error: 'This email is not authorized for admin access.' };
   }
 
-  var token = Utilities.getUuid();
-  var sessions = loadSessions_();
-  sessions[token] = { email: email, expiresAt: Date.now() + SESSION_TTL_MS };
-  saveSessions_(sessions);
+  var token = createSession_(email);
   logAudit_(email, 'Login', 'Admin logged in');
   try { lockDownProofFilesOnce_(); } catch (err) { console.error('lockDownProofFilesOnce_ failed: ' + err); }
   // Bundled with the reservations list so the dashboard can render immediately
@@ -1585,15 +1867,35 @@ function verifyOtp_(email, code) {
   return { ok: true, token: token, email: email, role: admin.role, reservations: getReservations_(token) };
 }
 
+// Session tokens are 2×UUID (244 random bits). They are only ever sent in
+// POST bodies, and the store holds a SHA-256 of each token rather than the
+// token itself, so a Script Properties dump doesn't yield usable sessions.
+function newSessionToken_() {
+  return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+}
+
+function createSession_(email) {
+  var token = newSessionToken_();
+  var now = Date.now();
+  mutateSessions_(function (sessions) {
+    sessions[hashKey_(token)] = { email: email, createdAt: now, lastSeen: now, expiresAt: now + SESSION_TTL_MS };
+  });
+  return token;
+}
+
 function validateSession_(token) {
-  if (!token) return { ok: false };
-  var sessions = loadSessions_();
-  var s = sessions[token];
-  if (!s || s.expiresAt < Date.now()) return { ok: false };
+  if (!token || typeof token !== 'string') return { ok: false };
+  var key = hashKey_(token);
+  var s = loadSessions_()[key];
+  var now = Date.now();
+  if (!s || s.expiresAt < now || now - (s.lastSeen || 0) > SESSION_IDLE_MS) return { ok: false };
   // A session only lives as long as the admin's Active row — removing an
   // admin revokes their existing tokens too, not just future logins.
   var admin = getActiveAdmin_(s.email);
   if (!admin) return { ok: false };
+  if (now - (s.lastSeen || 0) > SESSION_TOUCH_INTERVAL_MS) {
+    mutateSessions_(function (sessions) { if (sessions[key]) sessions[key].lastSeen = now; });
+  }
   return { ok: true, email: s.email, role: admin.role };
 }
 
@@ -1609,16 +1911,52 @@ function requireSuperAdmin_(token) {
   return v;
 }
 
+// Server-side logout: the token is deleted from the store, so a copy left
+// in a log, screenshot or another browser stops working immediately.
+function logout_(token) {
+  if (!token || typeof token !== 'string') return { ok: true };
+  var key = hashKey_(token);
+  var email = null;
+  mutateSessions_(function (sessions) {
+    if (sessions[key]) { email = sessions[key].email; delete sessions[key]; }
+  });
+  if (email) logAudit_(email, 'Logout', 'Admin logged out (session revoked server-side)');
+  return { ok: true };
+}
+
+// Revokes every session for one address (used on lockout and admin removal).
+function revokeSessionsFor_(email) {
+  email = String(email || '').toLowerCase();
+  mutateSessions_(function (sessions) {
+    Object.keys(sessions).forEach(function (k) {
+      if (String(sessions[k].email || '').toLowerCase() === email) delete sessions[k];
+    });
+  });
+}
+
 function loadSessions_() {
   var raw = PropertiesService.getScriptProperties().getProperty('SESSIONS');
   var sessions = raw ? JSON.parse(raw) : {};
   var now = Date.now();
   Object.keys(sessions).forEach(function (t) {
-    if (sessions[t].expiresAt < now) delete sessions[t];
+    var s = sessions[t];
+    // Drops expired/idle sessions and any pre-hashing entry (64-hex keys
+    // only), which forces one fresh login after this change.
+    if (!/^[0-9a-f]{64}$/.test(t) || s.expiresAt < now || now - (s.lastSeen || 0) > SESSION_IDLE_MS) delete sessions[t];
   });
   return sessions;
 }
 
-function saveSessions_(sessions) {
-  PropertiesService.getScriptProperties().setProperty('SESSIONS', JSON.stringify(sessions));
+// Read-modify-write of the session store under the counter lock, so two
+// concurrent logins/logouts can't overwrite each other.
+function mutateSessions_(fn) {
+  var lock = counterLock_();
+  if (!lock.tryLock(10000)) throw new Error('Please try again in a moment.');
+  try {
+    var sessions = loadSessions_();
+    fn(sessions);
+    PropertiesService.getScriptProperties().setProperty('SESSIONS', JSON.stringify(sessions));
+  } finally {
+    lock.releaseLock();
+  }
 }

@@ -593,6 +593,45 @@ section#top .container {
 
 .field-full { grid-column: 1 / -1; }
 
+/* RA 10173 privacy notice + consent (booking form and Contact Us modal) */
+.consent {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--green-50);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.consent .privacy-notice summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--green-700);
+}
+
+.consent .privacy-notice p {
+  margin: 6px 0 4px;
+  color: var(--muted);
+}
+
+.consent-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.consent-check input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--green-700);
+}
+
 .field-priority {
   background: #fdecea;
   border: 1px solid #f3c6c1;

@@ -19,7 +19,7 @@ async function init() {
 
   let result;
   try {
-    result = await apiGet({ action: 'getGuestReservation', reservationId, token });
+    result = await apiPost({ action: 'getGuestReservation', reservationId, token });
   } catch (err) {
     renderError(state, 'Could not reach the reservation system. Please try again later.');
     return;

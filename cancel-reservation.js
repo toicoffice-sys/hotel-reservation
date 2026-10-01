@@ -1,7 +1,7 @@
 // DLSL Chez Rafael Hotel Reservation System — guest self-service cancellation
 // page logic. Reached only via the signed link in the approval email (see
 // signReservationToken_/sendStatusUpdateEmail_ in Code.gs). Loading this page
-// is a read-only GET — cancellation only happens if the guest clicks Confirm,
+// is read-only — cancellation only happens if the guest clicks Confirm,
 // so an email client/security scanner prefetching the link can't cancel a
 // booking on its own. Shared SCRIPT_URL/apiGet/apiPost/navigateTop helpers
 // live in common.js.
@@ -20,7 +20,7 @@ async function init() {
 
   let result;
   try {
-    result = await apiGet({ action: 'getGuestReservation', reservationId, token });
+    result = await apiPost({ action: 'getGuestReservation', reservationId, token });
   } catch (err) {
     renderError(state, 'Could not reach the reservation system. Please try again later.');
     return;
